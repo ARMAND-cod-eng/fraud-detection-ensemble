@@ -89,7 +89,7 @@ jupyter notebook notebooks/01_fraud_detection_complete.ipynb
 
 ## 📁 Project Structure
 
-fraud-detection-ensemble/
+```fraud-detection-ensemble/
 │
 ├── 📓 notebooks/
 │   ├── 01_fraud_detection_complete.ipynb  # Main analysis (from Kaggle)
@@ -107,11 +107,11 @@ fraud-detection-ensemble/
 ├── 📋 requirements.txt                    # Python dependencies
 ├── 📄 LICENSE                             # MIT License
 └── 📄 README.md                          # This file
-
+```
 ## 🏗️ Model Architecture
 ### Ensemble Strategy
 
-Input Transaction
+```Input Transaction
        ↓
 ┌──────────────────────────────────────────┐
 │          Feature Engineering              │
@@ -132,7 +132,7 @@ Input Transaction
            └─────────────────┘
                     ↓
             Fraud Probability
-
+```
 ### Setup
 
 # Create virtual environment
