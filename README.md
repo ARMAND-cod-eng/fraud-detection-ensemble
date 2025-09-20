@@ -83,7 +83,8 @@ cd fraud-detection-ensemble
 pip install -r requirements.txt
 
 # Run notebook
-jupyter notebook notebooks/01_fraud_detection_complete.ipynb```
+jupyter notebook notebooks/01_fraud_detection_complete.ipynb
+```
 
 
 ## 📁 Project Structure
