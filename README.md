@@ -134,7 +134,7 @@ jupyter notebook notebooks/01_fraud_detection_complete.ipynb
             Fraud Probability
 ```
 ### Setup
-
+```
 # Create virtual environment
 python -m venv fraud_detection_env
 source fraud_detection_env/bin/activate  # Windows: fraud_detection_env\Scripts\activate
@@ -145,7 +145,7 @@ pip install -r requirements.txt
 # Download dataset
 kaggle datasets download -d mlg-ulb/creditcardfraud
 unzip creditcardfraud.zip -d data/raw/
-
+```
 
 ### Contributing
 Contributions are welcome! Please feel free to submit a Pull Request.
