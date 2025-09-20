@@ -4,7 +4,7 @@
 
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Kaggle](https://img.shields.io/badge/Kaggle-Notebook-20BEFF)](https://www.kaggle.com/armandjunior/fraud-detection-ensemble)
+[![Kaggle](https://img.shields.io/badge/Kaggle-Notebook-20BEFF)](https://www.kaggle.com/code/armandjunior/real-time-fraud-detection-system-using-autoencoder)
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-0077B5)](https://www.linkedin.com/in/notue250/)
 [![ROI](https://img.shields.io/badge/ROI-1,779%25-success)](https://github.com/ARMAND-cod-eng/fraud-detection-ensemble)
 [![Recall](https://img.shields.io/badge/Recall-85.71%25-green)](https://github.com/ARMAND-cod-eng/fraud-detection-ensemble)
