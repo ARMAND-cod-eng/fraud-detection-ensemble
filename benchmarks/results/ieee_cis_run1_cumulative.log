@@ -1,0 +1,13 @@
+loaded (590540, 434) in 33s, 1.33 GB
+prepared: train 354324 (0.0338 fraud), val 118108, test 118108 (0.0344); 12 entity features
+without entity features: test PR-AUC 0.5082 (1053s)
+with entity features:    test PR-AUC 0.4977 (1843s)
+{
+  "pr_auc_no_graph": 0.5081803964443401,
+  "pr_auc_graph": 0.49774925751061294,
+  "delta_ci": [
+    -0.015249066050319168,
+    -0.0056998005083841044
+  ]
+}
+EXIT 0

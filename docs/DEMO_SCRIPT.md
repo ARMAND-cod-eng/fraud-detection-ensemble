@@ -15,4 +15,5 @@ built, `POST /api/v1/admin/reset` called, browser at `http://localhost:8000/#/ov
 
 **If asked "why not deep learning / a GNN?":** the autoencoder is in the benchmark (test PR-AUC
 0.21 out-of-time) and the dataset has no entity identifiers, so a graph model would be invented
-structure; the IEEE-CIS pipeline adds honest past-only entity features where relationships exist.
+structure. On IEEE-CIS, which has card/address/device fields, past-only entity counts were tested:
+cumulative counts drifted and hurt (−0.010 PR-AUC), trailing windows fixed the drift but added nothing.

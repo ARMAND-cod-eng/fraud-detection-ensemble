@@ -1,0 +1,76 @@
+{
+  "dataset": "IEEE-CIS train_transaction + train_identity",
+  "rows": 590540,
+  "split": "chronological 60/20/20 on TransactionDT",
+  "fraud_rate": 0.03499000914417313,
+  "test_fraud_rate": 0.034409184813899145,
+  "runtime_seconds": 1868.8,
+  "graph_features": [
+    "g_card_prior_txns",
+    "g_card_secs_since_prev",
+    "g_card_addr_prior_txns",
+    "g_card_addr_secs_since_prev",
+    "g_card_email_prior_txns",
+    "g_card_email_secs_since_prev",
+    "g_device_prior_txns",
+    "g_device_secs_since_prev",
+    "g_device_distinct_cards_before",
+    "g_email_prior_txns",
+    "g_email_secs_since_prev",
+    "g_email_distinct_cards_before"
+  ],
+  "xgboost_without_graph_features": {
+    "features": 431,
+    "trees": 702,
+    "validation": {
+      "pr_auc": 0.6273638846965044,
+      "roc_auc": 0.9259816500938968
+    },
+    "test": {
+      "roc_auc": 0.8872153756893665,
+      "pr_auc": 0.5081803964443401,
+      "recall@fpr=0.001": 0.23818897637795275,
+      "recall@fpr=0.005": 0.3641732283464567,
+      "recall@fpr=0.01": 0.4271653543307087,
+      "precision@top0.10%(k=118)": 0.9915254237288136,
+      "precision@top0.25%(k=295)": 0.9796610169491525,
+      "precision@top0.50%(k=591)": 0.9306260575296108
+    }
+  },
+  "xgboost_with_graph_features": {
+    "features": 443,
+    "trees": 512,
+    "validation": {
+      "pr_auc": 0.614669228510876,
+      "roc_auc": 0.9260526964096572
+    },
+    "test": {
+      "roc_auc": 0.8920689036963769,
+      "pr_auc": 0.49774925751061294,
+      "recall@fpr=0.001": 0.21751968503937008,
+      "recall@fpr=0.005": 0.3673720472440945,
+      "recall@fpr=0.01": 0.422490157480315,
+      "precision@top0.10%(k=118)": 0.9491525423728814,
+      "precision@top0.25%(k=295)": 0.9186440677966101,
+      "precision@top0.50%(k=591)": 0.9086294416243654
+    }
+  },
+  "test_pr_auc_95ci": {
+    "no_graph": {
+      "point": 0.5081803964443401,
+      "ci_low": 0.4918315914463554,
+      "ci_high": 0.5215491562313308,
+      "n_boot": 500
+    },
+    "graph": {
+      "point": 0.49774925751061294,
+      "ci_low": 0.4810438253578114,
+      "ci_high": 0.5122734570896925,
+      "n_boot": 500,
+      "delta_vs_no_graph": -0.010431138933727158,
+      "delta_ci_low": -0.015249066050319168,
+      "delta_ci_high": -0.0056998005083841044,
+      "p_delta_le_0": 1.0
+    }
+  }
+}

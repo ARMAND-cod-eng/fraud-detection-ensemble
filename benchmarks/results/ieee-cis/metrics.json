@@ -1,0 +1,89 @@
+{
+  "dataset": "IEEE-CIS train_transaction + train_identity",
+  "rows": 590540,
+  "split": "chronological 60/20/20 on TransactionDT",
+  "fraud_rate": 0.03499000914417313,
+  "test_fraud_rate": 0.034409184813899145,
+  "selection_rule": "best validation PR-AUC among variants (test reported for all)",
+  "selected_variant": "none",
+  "entity_features": {
+    "windowed": [
+      "w_card_txns_24h",
+      "w_card_txns_7d",
+      "w_card_secs_since_prev",
+      "w_card_addr_txns_24h",
+      "w_card_addr_txns_7d",
+      "w_card_addr_secs_since_prev",
+      "w_card_email_txns_24h",
+      "w_card_email_txns_7d",
+      "w_card_email_secs_since_prev",
+      "w_device_txns_24h",
+      "w_device_txns_7d",
+      "w_device_secs_since_prev",
+      "w_device_distinct_cards_7d",
+      "w_email_txns_24h",
+      "w_email_txns_7d",
+      "w_email_secs_since_prev",
+      "w_email_distinct_cards_7d"
+    ]
+  },
+  "variants": {
+    "none": {
+      "features": 431,
+      "trees": 702,
+      "validation": {
+        "pr_auc": 0.6273638846965044,
+        "roc_auc": 0.9259816500938968
+      },
+      "test": {
+        "roc_auc": 0.8872153756893665,
+        "pr_auc": 0.5081803964443401,
+        "recall@fpr=0.001": 0.23818897637795275,
+        "recall@fpr=0.005": 0.3641732283464567,
+        "recall@fpr=0.01": 0.4271653543307087,
+        "precision@top0.10%(k=118)": 0.9915254237288136,
+        "precision@top0.25%(k=295)": 0.9796610169491525,
+        "precision@top0.50%(k=591)": 0.9306260575296108
+      },
+      "entity_feature_gain_share": 0.0
+    },
+    "windowed": {
+      "features": 448,
+      "trees": 834,
+      "validation": {
+        "pr_auc": 0.6228127665133982,
+        "roc_auc": 0.9252458723511239
+      },
+      "test": {
+        "roc_auc": 0.890243633000331,
+        "pr_auc": 0.5044947627768603,
+        "recall@fpr=0.001": 0.22859251968503938,
+        "recall@fpr=0.005": 0.36638779527559057,
+        "recall@fpr=0.01": 0.42298228346456695,
+        "precision@top0.10%(k=118)": 1.0,
+        "precision@top0.25%(k=295)": 0.9322033898305084,
+        "precision@top0.50%(k=591)": 0.934010152284264
+      },
+      "entity_feature_gain_share": 0.01547990688791315
+    }
+  },
+  "test_pr_auc_95ci": {
+    "none": {
+      "point": 0.5081803964443401,
+      "ci_low": 0.4918315914463554,
+      "ci_high": 0.5215491562313308,
+      "n_boot": 500
+    },
+    "windowed": {
+      "point": 0.5044947627768603,
+      "ci_low": 0.48793929845422734,
+      "ci_high": 0.5183628065324076,
+      "n_boot": 500,
+      "delta_vs_none": -0.0036856336674797596,
+      "delta_ci_low": -0.007769286200307952,
+      "delta_ci_high": 0.00020268966370002006,
+      "p_delta_le_0": 0.97
+    }
+  },
+  "runtime_seconds": 2104.3
+}
