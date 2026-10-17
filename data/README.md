@@ -1,28 +1,32 @@
-# Data Directory
+# Data
 
-## Dataset Information
+Datasets are **not committed** (size and licence). `data/raw/` is git-ignored.
 
-**Source**: https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud
+## ULB credit-card fraud (primary benchmark)
 
-**Context**
-It is important that credit card companies are able to recognize fraudulent credit card transactions so that customers are not charged for items that they did not purchase.
+* Source: https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud — Machine Learning Group, ULB and
+  Worldline; Database Contents License.
+* 284,807 transactions by European cardholders over two days in September 2013; 492 frauds
+  (0.172%); features V1–V28 (PCA, meaning not disclosed), `Amount`, `Time` (seconds since the first
+  transaction), label `Class`.
+* 1,081 exact duplicate rows (19 fraud) — removed by the pipeline before splitting.
 
-**Content**
-The dataset contains transactions made by credit cards in September 2013 by European cardholders.
-This dataset presents transactions that occurred in two days, where we have 492 frauds out of 284,807 transactions. The dataset is highly unbalanced, the positive class (frauds) account for 0.172% of all transactions.
-
-**Statistics**:
-- Total transactions: 284,807
-- Fraudulent transactions: 492 (0.172%)
-- Features: 30 (28 PCA + Time + Amount)
-- Timespan: 48 hours
-
-## File Structure
-- `raw/` - Original dataset (not included due to size)
-- `processed/` - Preprocessed data files
-- `external/` - External data sources
-
-## Download Instructions
 ```bash
-kaggle datasets download -d mlg-ulb/creditcardfraud
-unzip creditcardfraud.zip -d data/raw/
+fraudshield download-data
+```
+
+uses the Kaggle CLI if you have configured your own API token, otherwise the public copy used by
+the TensorFlow imbalanced-data tutorial; the file is accepted only if its SHA-256 equals
+`76274b691b16a6c49d3f159c883398e03ccd6d1ee12d9d8ee38f4b4b98551a89`.
+
+## IEEE-CIS fraud detection (second benchmark, optional)
+
+Requires accepting the competition rules on Kaggle with your own account:
+
+```bash
+kaggle competitions download -c ieee-fraud-detection -p data/raw/ieee-cis
+unzip data/raw/ieee-cis/ieee-fraud-detection.zip -d data/raw/ieee-cis
+python benchmarks/ieee_cis_benchmark.py --root data/raw/ieee-cis
+```
+
+Its results are reported separately and are never combined with the credit-card benchmark.
