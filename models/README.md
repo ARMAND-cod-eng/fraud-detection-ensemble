@@ -1,24 +1,18 @@
-# Models Directory
+# Models
 
-Trained model artifacts for the fraud detection ensemble.
+Trained models are **not committed**. They are produced by `fraudshield train` into
+`artifacts/models/<version>/` (git-ignored) and tracked by `artifacts/registry.json`:
 
-## Model Files
+| File | Content |
+|---|---|
+| `booster.json` | XGBoost model (native JSON format) |
+| `model.json` | Model kind, feature-builder profile, Platt calibration, signal quantiles |
+| `autoencoder.npz` | Autoencoder weights for the NumPy forward pass (trained with PyTorch) |
+| `iforest.joblib` | Isolation Forest (pickle; loaded only after SHA-256 verification) |
+| `metadata.json` | Version, data hash, split, metrics, gate checks, library versions |
+| `evaluation.json` | Full offline evaluation (curves, bootstrap CIs, costs, latency, SHAP importance) |
+| `reference_profile.json` | Drift-detection reference distributions |
+| `MANIFEST.json` | SHA-256 of every file above |
 
-1. **autoencoder.pth** (PyTorch)
-   - Architecture: 30 → 32 → 24 → 14 → 24 → 32 → 30
-   - Training: 50 epochs on normal transactions only
-   - Purpose: Anomaly detection via reconstruction error
-
-2. **isolation_forest.pkl** (Scikit-learn)
-   - Trees: 200
-   - Contamination: 0.002
-   - Purpose: Statistical outlier detection
-
-3. **xgboost_model.json** (XGBoost)
-   - Trees: 300
-   - Max depth: 6
-   - Purpose: Final ensemble decision
-
-## Model Performance
-- Ensemble F1-Score: 0.6109
-- Individual contributions shown in main README
+Note: an earlier version of this file listed `autoencoder.pth`, `isolation_forest.pkl` and
+`xgboost_model.json`; those files were never committed. See `docs/PROJECT_AUDIT.md`.

@@ -1,0 +1,40 @@
+[16:24:48] data: 283726 rows, split {'strategy': 'chronological 60%/20%/20%', 'train': {'rows': 170235, 'frauds': 342, 'fraud_rate': 0.002009, 'time_start_s': 0.0, 'time_end_s': 120392.0}, 'validation': {'rows': 56745, 'frauds': 57, 'fraud_rate': 0.001004, 'time_start_s': 120393.0, 'time_end_s': 145233.0}, 'test': {'rows': 56746, 'frauds': 74, 'fraud_rate': 0.001304, 'time_start_s': 145234.0, 'time_end_s': 172792.0}}
+[16:25:01] xgboost {'max_depth': 3, 'min_child_weight': 5, 'scale_pos_weight': 1} trees=266 val PR-AUC=0.7882
+[16:25:03] logreg best {'C': 0.01, 'class_weight': 'balanced'} val PR-AUC=0.7851
+[16:25:15] fitting isolation forest + autoencoder on train
+[16:25:33] computing out-of-fold detector scores for stacking
+[16:26:12] stacked: trees=391 val PR-AUC=0.7857
+[16:26:24] stacked_insample: trees=314 val PR-AUC=0.7855
+[16:26:35] logreg: val PR-AUC gain -0.0031 vs xgboost (90% CI low -0.0219) -> does not qualify | stacked: val PR-AUC gain -0.0025 vs xgboost (90% CI low -0.0095) -> does not qualify | selected: xgboost
+[16:26:35] scoring test split (final report)
+[16:27:35] latency logreg: p50=0.147 ms p95=0.271 ms
+[16:27:35] latency xgboost: p50=0.566 ms p95=0.945 ms
+[16:27:39] latency stacked: p50=10.153 ms p95=13.305 ms
+[16:27:48] saved model artifact artifacts\experiments\models\xgboost-20261016-212748
+[16:27:57] wrote benchmark report to benchmarks/results/creditcard-chronological-fast
+[16:27:57] done in 192.5 s
+{
+  "version": "xgboost-20261016-212748",
+  "selected_model": "xgboost",
+  "validation": {
+    "roc_auc": 0.9813237493253314,
+    "pr_auc": 0.788201838339905,
+    "recall@fpr=0.001": 0.8070175438596491,
+    "recall@fpr=0.005": 0.8245614035087719,
+    "recall@fpr=0.01": 0.8421052631578947,
+    "precision@top0.10%(k=57)": 0.7543859649122807,
+    "precision@top0.25%(k=142)": 0.323943661971831,
+    "precision@top0.50%(k=284)": 0.16549295774647887
+  },
+  "test": {
+    "roc_auc": 0.9857055583957758,
+    "pr_auc": 0.8008707747931969,
+    "recall@fpr=0.001": 0.7972972972972973,
+    "recall@fpr=0.005": 0.8378378378378378,
+    "recall@fpr=0.01": 0.8648648648648649,
+    "precision@top0.10%(k=57)": 0.9122807017543859,
+    "precision@top0.25%(k=142)": 0.4225352112676056,
+    "precision@top0.50%(k=284)": 0.2147887323943662
+  },
+  "review_threshold": 0.39148398324859607
+}

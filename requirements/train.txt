@@ -1,0 +1,4 @@
+# Training/evaluation environment. Install PyTorch CPU wheels from the official index:
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+-r serve.txt
+matplotlib==3.11.2

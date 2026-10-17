@@ -1,0 +1,48 @@
+[15:30:58] data: 283726 rows, split {'strategy': 'chronological 60%/20%/20%', 'train': {'rows': 170235, 'frauds': 342, 'fraud_rate': 0.002009, 'time_start_s': 0.0, 'time_end_s': 120392.0}, 'validation': {'rows': 56745, 'frauds': 57, 'fraud_rate': 0.001004, 'time_start_s': 120393.0, 'time_end_s': 145233.0}, 'test': {'rows': 56746, 'frauds': 74, 'fraud_rate': 0.001304, 'time_start_s': 145234.0, 'time_end_s': 172792.0}}
+[15:31:11] xgboost {'max_depth': 3, 'min_child_weight': 1, 'scale_pos_weight': 1} trees=319 val PR-AUC=0.7879
+[15:31:19] xgboost {'max_depth': 3, 'min_child_weight': 1, 'scale_pos_weight': 10} trees=163 val PR-AUC=0.7779
+[15:31:29] xgboost {'max_depth': 3, 'min_child_weight': 5, 'scale_pos_weight': 1} trees=266 val PR-AUC=0.7882
+[15:31:38] xgboost {'max_depth': 3, 'min_child_weight': 5, 'scale_pos_weight': 10} trees=223 val PR-AUC=0.7767
+[15:31:45] xgboost {'max_depth': 5, 'min_child_weight': 1, 'scale_pos_weight': 1} trees=103 val PR-AUC=0.7894
+[15:31:51] xgboost {'max_depth': 5, 'min_child_weight': 1, 'scale_pos_weight': 10} trees=77 val PR-AUC=0.7688
+[15:32:01] xgboost {'max_depth': 5, 'min_child_weight': 5, 'scale_pos_weight': 1} trees=205 val PR-AUC=0.7875
+[15:32:08] xgboost {'max_depth': 5, 'min_child_weight': 5, 'scale_pos_weight': 10} trees=100 val PR-AUC=0.7535
+[15:32:15] logreg best {'C': 0.01, 'class_weight': 'balanced'} val PR-AUC=0.7851
+[15:32:23] fitting isolation forest + autoencoder on train
+[15:33:25] computing out-of-fold detector scores for stacking
+[15:36:05] stacked: trees=104 val PR-AUC=0.7909
+[15:36:14] stacked_insample: trees=166 val PR-AUC=0.7926
+[15:36:51] logreg: val PR-AUC gain -0.0042 vs xgboost (90% CI low -0.0327) -> does not qualify | stacked: val PR-AUC gain +0.0015 vs xgboost (90% CI low -0.0103) -> does not qualify | selected: xgboost
+[15:36:51] scoring test split (final report)
+[15:40:19] latency logreg: p50=0.120 ms p95=0.247 ms
+[15:40:19] latency xgboost: p50=0.548 ms p95=0.835 ms
+[15:40:30] latency stacked: p50=19.090 ms p95=25.485 ms
+[15:40:44] saved model artifact artifacts\models\xgboost-20261016-204043
+[15:40:55] wrote benchmark report to benchmarks/results/creditcard-chronological
+[15:40:55] done in 598.5 s
+{
+  "version": "xgboost-20261016-204043",
+  "selected_model": "xgboost",
+  "validation": {
+    "roc_auc": 0.9672547424870389,
+    "pr_auc": 0.7893928630928058,
+    "recall@fpr=0.001": 0.8070175438596491,
+    "recall@fpr=0.005": 0.8070175438596491,
+    "recall@fpr=0.01": 0.8245614035087719,
+    "precision@top0.10%(k=57)": 0.7719298245614035,
+    "precision@top0.25%(k=142)": 0.323943661971831,
+    "precision@top0.50%(k=284)": 0.1619718309859155
+  },
+  "test": {
+    "roc_auc": 0.9740901174325087,
+    "pr_auc": 0.8013659548744979,
+    "recall@fpr=0.001": 0.8108108108108109,
+    "recall@fpr=0.005": 0.8513513513513513,
+    "recall@fpr=0.01": 0.8513513513513513,
+    "precision@top0.10%(k=57)": 0.9122807017543859,
+    "precision@top0.25%(k=142)": 0.4225352112676056,
+    "precision@top0.50%(k=284)": 0.21830985915492956
+  },
+  "review_threshold": 0.533360763576917
+}
+EXIT 0

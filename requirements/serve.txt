@@ -1,0 +1,16 @@
+# Pinned runtime dependencies for the API image (no PyTorch: the autoencoder runs in NumPy).
+# scikit-learn and numpy MUST match the training environment: the Isolation Forest artifact is a
+# pickle, and the artifact loader verifies its SHA-256 before deserialising it.
+numpy==2.5.4
+pandas==3.0.6
+scipy==1.18.1
+scikit-learn==1.9.1
+joblib==1.6.0
+xgboost-cpu==3.4.1
+pyyaml==6.0.3
+pydantic==2.14.1
+pydantic-settings==2.16.0
+fastapi==0.143.3
+starlette==1.8.0
+uvicorn[standard]==0.54.0
+prometheus-client==0.26.0
