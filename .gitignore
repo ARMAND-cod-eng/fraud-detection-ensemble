@@ -205,3 +205,19 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# --- FraudShield ---
+data/raw/
+data/processed/
+artifacts/
+var/
+mlruns/
+mlruns.db
+dashboard/node_modules/
+dashboard/dist/
+var_server.log
+*.partial
+.claude/
+# the generic Python rules above ignore lib/ and *.log; keep these project files
+!dashboard/src/lib/
+!benchmarks/results/*.log
