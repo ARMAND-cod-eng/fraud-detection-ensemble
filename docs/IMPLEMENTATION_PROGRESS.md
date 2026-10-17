@@ -82,8 +82,8 @@ Hardware: Windows 11 laptop, 8 CPU cores, 8 GB RAM, no GPU. Python 3.12.13, Node
 * Seed variance for the autoencoder/stacked models not quantified; XGBoost `hist` is deterministic.
 * The MLflow run for the production model was not recorded (MLflow was installed after it);
   re-running `fraudshield train` with `pip install -e .[tracking]` records it.
-* `medical-insurance-cost-prediction.ipynb` (unrelated project) is still in the repository root;
-  recommended: move it to its own repository.
+* `medical-insurance-cost-prediction.ipynb` (unrelated project) was removed from the repository on
+  2026-10-17 (a local copy was kept outside the repo; it remains in git history).
 
 ## Next actions (suggested order)
 
