@@ -1,14 +1,23 @@
 # FraudShield AI — real-time fraud intelligence platform
 
 [![CI](https://github.com/ARMAND-cod-eng/fraud-detection-ensemble/actions/workflows/ci.yml/badge.svg)](https://github.com/ARMAND-cod-eng/fraud-detection-ensemble/actions/workflows/ci.yml)
+![Coverage 92%](https://img.shields.io/badge/coverage-92%25-brightgreen)
 ![Python 3.12](https://img.shields.io/badge/python-3.12-blue)
 ![License: MIT](https://img.shields.io/badge/license-MIT-lightgrey)
 
-**Card fraud is rare (≈0.1–0.2% of payments), costly when missed and costly to over-flag; FraudShield
-scores each transaction in under a millisecond, turns calibrated probabilities into auditable
-decisions, and gives analysts the evidence to act — with every claim measured out-of-time.**
+**Problem.** Card fraud is rare (≈0.1–0.2% of payments), costly when missed and costly to
+over-flag, and most public fraud models are evaluated in ways that would not survive production.
 
-![Investigation workspace](docs/images/cases.png)
+**Approach.** FraudShield scores each transaction behind a FastAPI service, turns calibrated
+probabilities into auditable approve / review / decline decisions through a versioned policy, and
+gives analysts a React investigation workspace with per-decision explanations. Every model choice
+is made on validation data from an *earlier* period; the final test window is scored once.
+
+**Result.** On the held-out future window: PR-AUC **0.801**, **81%** of fraud caught at a 0.1%
+false-positive rate, **0.84 ms** per decision, and an honest finding: the original ensemble did
+not beat a single XGBoost, so it was not shipped.
+
+![FraudShield walkthrough: replay, live monitor, investigation, performance, policy, drift](docs/images/demo.gif)
 
 ## Results at a glance (verified, held-out future window)
 
@@ -22,7 +31,7 @@ decisions, and gives analysts the evidence to act — with every claim measured 
 | Inference, one transaction (in-process p95) | **0.84 ms** |
 | HTTP `POST /score`, Linux container | p50 **3.1 ms** · p95 4.8 ms · ~288 req/s per worker |
 | Second dataset (IEEE-CIS, 590k transactions, separate benchmark) | test PR-AUC **0.508** [0.492–0.522] · ROC-AUC 0.887 |
-| Tests | **58 automated tests** (unit + API integration), ruff, mypy, CI |
+| Engineering checks | **63 automated tests**, 92% coverage (CI gate 88%), ruff, mypy, pip-audit, npm audit, Dependabot |
 
 Data: ULB credit-card dataset (284,807 transactions, 48 h, 492 frauds), chronological
 60/20/20 split, duplicates removed, every choice made on validation, test scored once.
@@ -184,7 +193,7 @@ fraudshield models list | show | promote --version V | rollback
 python benchmarks/reproduce_legacy.py        # faithful re-run of the original notebook (5 seeds)
 python benchmarks/policy_experiment.py       # threshold/cost experiment
 python benchmarks/load_test.py               # HTTP load test against a running API
-pytest -q                                    # 58 tests; trains a tiny model on synthetic data, no dataset needed
+pytest -q --cov=src/fraudshield --cov=api   # 63 tests; trains a tiny model on synthetic data, no dataset needed
 python benchmarks/ieee_cis_benchmark.py      # second dataset (needs Kaggle IEEE-CIS files, ~50 min CPU)
 ```
 
@@ -241,7 +250,7 @@ hand-written charts over chart libraries (88 kB gzipped UI). Details:
 
 ## Documentation
 
-[Audit](docs/PROJECT_AUDIT.md) · [Architecture](docs/ARCHITECTURE.md) ·
+[Audit](docs/PROJECT_AUDIT.md) · [System design](docs/SYSTEM_DESIGN.md) · [Architecture](docs/ARCHITECTURE.md) ·
 [ML evaluation](docs/ML_EVALUATION.md) · [Model card](docs/MODEL_CARD.md) ·
 [Decision engine](docs/DECISION_ENGINE.md) · [Deployment](docs/DEPLOYMENT.md) ·
 [Trade-offs](docs/ENGINEERING_TRADEOFFS.md) · [Demo script](docs/DEMO_SCRIPT.md) ·
