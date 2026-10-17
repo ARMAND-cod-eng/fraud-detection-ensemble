@@ -180,12 +180,30 @@ python benchmarks/policy_experiment.py
 python benchmarks/load_test.py --requests 3000 --concurrency 1 2 4 8
 ```
 
-## 11. Second dataset: IEEE-CIS (pipeline ready, not yet run)
+## 11. Second dataset: IEEE-CIS (separate benchmark)
 
-`src/fraudshield/data/ieee_cis.py` and `benchmarks/ieee_cis_benchmark.py` implement an
-out-of-time benchmark with and without **past-only entity features** (prior transactions per
-card / card+address / card+email / device / email domain, time since previous, distinct cards
-per device and per email domain). They are unit-tested on a schema-shaped synthetic frame,
-including a test that later labels cannot change earlier features. The real data requires
-accepting the Kaggle competition rules with your own account, so **no IEEE-CIS results are
-reported**. Its metrics will be kept separate from the credit-card benchmark.
+Kaggle *IEEE-CIS Fraud Detection* (Vesta): 590,540 transactions over 182 days, 3.50% fraud,
+with card, address, e-mail-domain and device-model fields. Chronological 60/20/20 split on
+`TransactionDT`, categorical codes learned on train only, identical XGBoost settings for every
+variant, selection on validation PR-AUC fixed in advance. Full details:
+[benchmarks/results/ieee-cis/report.md](../benchmarks/results/ieee-cis/report.md).
+**These numbers are not comparable with §5** (different population, label definition and fraud rate).
+
+| Variant | Val PR-AUC | Test PR-AUC [95% CI] | Δ vs original [95% CI] | Test ROC-AUC |
+|---|---:|---|---|---:|
+| **Original columns (selected)** | **0.627** | **0.508** [0.492, 0.522] | — | 0.887 |
+| + cumulative entity counts (since data start) | 0.615 | 0.498 [0.481, 0.512] | −0.010 [−0.015, −0.006] | 0.892 |
+| + windowed entity counts (24 h / 7 d) | 0.623 | 0.505 [0.488, 0.518] | −0.004 [−0.008, +0.000] | 0.890 |
+
+* **Cumulative entity counts hurt, because they drift.** Counts since the start of the capture
+  only grow: test-period medians are 3–4× the training medians (prior transactions per card
+  174 → 756), and 25–39% of test rows exceed the training 90th percentile. This is a train/serve
+  mismatch that a random split would hide.
+* **Trailing windows remove most of the damage but add nothing measurable.** The data already
+  contains vendor-engineered counting, time-delta and entity-relation features (`C`, `D`, `V`
+  columns per the competition's data description); the new features get 1.5% of split gain.
+* **No graph model.** `DeviceInfo` is a device model string, not a device identifier, so a true
+  device or account graph cannot be built from this data. Past-only entity statistics were the
+  honest version of relationship features, and they did not help here.
+* The selected model catches 23.8% of frauds at a 0.1% false-positive rate and 42.7% at 1%;
+  its top 118 alerts (0.1% of transactions) are 99.2% fraud.

@@ -21,7 +21,8 @@ decisions, and gives analysts the evidence to act — with every claim measured 
 | Illustrative fraud loss in the test window | €7,728 → **€3,716** with the example policy |
 | Inference, one transaction (in-process p95) | **0.84 ms** |
 | HTTP `POST /score`, Linux container | p50 **3.1 ms** · p95 4.8 ms · ~288 req/s per worker |
-| Tests | **55 automated tests** (unit + API integration), ruff, mypy, CI |
+| Second dataset (IEEE-CIS, 590k transactions, separate benchmark) | test PR-AUC **0.508** [0.492–0.522] · ROC-AUC 0.887 |
+| Tests | **58 automated tests** (unit + API integration), ruff, mypy, CI |
 
 Data: ULB credit-card dataset (284,807 transactions, 48 h, 492 frauds), chronological
 60/20/20 split, duplicates removed, every choice made on validation, test scored once.
@@ -47,6 +48,23 @@ A pre-registered rule (beat XGBoost by ≥ 0.01 validation PR-AUC with a CI excl
 the ensemble: no measurable gain for 30–40× the single-transaction latency. The anomaly detectors are kept as analyst
 context, not as scoring inputs. Same pipeline on a *random* split reports PR-AUC 0.872 — random
 splits flatter this problem. See [docs/PROJECT_AUDIT.md](docs/PROJECT_AUDIT.md).
+
+### Second dataset: relationship features that drifted
+
+The ULB data has no identifiers, so relationship ("graph") features were tested on
+**IEEE-CIS** (590,540 transactions over 182 days, with card, address, e-mail and device-model
+fields), as a separate benchmark:
+
+| IEEE-CIS, out-of-time test | PR-AUC [95% CI] | Δ vs original columns [95% CI] |
+|---|---|---|
+| **Original columns (selected on validation)** | **0.508** [0.492, 0.522] | — |
+| + entity counts since the start of the data | 0.498 [0.481, 0.512] | −0.010 [−0.015, −0.006] |
+| + entity counts over trailing 24 h / 7 d windows | 0.505 [0.488, 0.518] | −0.004 [−0.008, +0.000] |
+
+Cumulative counts only grow with time (test medians 3–4× training), a built-in train/serve
+mismatch that hurt the model; trailing windows fixed the drift but added nothing, because the
+vendor's own counting and time-delta columns already carry that signal. Details:
+[benchmarks/results/ieee-cis/report.md](benchmarks/results/ieee-cis/report.md).
 
 ## What the platform does
 
@@ -166,7 +184,8 @@ fraudshield models list | show | promote --version V | rollback
 python benchmarks/reproduce_legacy.py        # faithful re-run of the original notebook (5 seeds)
 python benchmarks/policy_experiment.py       # threshold/cost experiment
 python benchmarks/load_test.py               # HTTP load test against a running API
-pytest -q                                    # 55 tests; trains a tiny model on synthetic data, no dataset needed
+pytest -q                                    # 58 tests; trains a tiny model on synthetic data, no dataset needed
+python benchmarks/ieee_cis_benchmark.py      # second dataset (needs Kaggle IEEE-CIS files, ~50 min CPU)
 ```
 
 ## Repository layout
@@ -202,12 +221,12 @@ notebooks/         original exploratory notebook (kept unchanged for reference)
 * V1–V28 are PCA components without disclosed meaning; explanations cannot be phrased in business terms.
 * Costs are assumptions; no real chargeback or review-cost data.
 * No customer attributes → no fairness/subgroup analysis possible on this dataset.
-* IEEE-CIS benchmark and its past-only entity/graph features are implemented and unit-tested but
-  **not yet run** (data requires accepting Kaggle competition terms).
+* IEEE-CIS results come from a fixed XGBoost configuration (no tuning per variant) and one seed;
+  its `DeviceInfo` field is a device model, not a device ID, so no true device graph is possible.
 
 ## Planned improvements
 
-* Run the IEEE-CIS benchmark (with/without entity features) and report it separately.
+* Serve an IEEE-CIS model through the same API (needs a second feature schema).
 * Redis/Postgres-backed state for multi-worker serving; shadow-mode evaluation of challenger models.
 * Signed artifacts and S3-backed registry; SSO for the analyst UI.
 * Seed-variance study for the stochastic models; conformal or Venn-Abers calibration comparison.

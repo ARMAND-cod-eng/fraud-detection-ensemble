@@ -1,0 +1,24 @@
+loaded (590540, 434) in 30s, 1.33 GB
+prepared in 43s: train 354324 (0.0338 fraud), val 118108, test 118108 (0.0344); windowed: 17 entity features
+none      : val PR-AUC 0.6274  test PR-AUC 0.5082  trees 702  (944s)
+windowed  : val PR-AUC 0.6228  test PR-AUC 0.5045  trees 834  (2060s)
+{
+  "selected": "none",
+  "pr_auc": {
+    "none": {
+      "val": 0.6274,
+      "test": 0.5082
+    },
+    "windowed": {
+      "val": 0.6228,
+      "test": 0.5045
+    }
+  },
+  "delta_vs_none_95ci": {
+    "windowed": [
+      -0.0078,
+      0.0002
+    ]
+  }
+}
+EXIT 0

@@ -34,6 +34,7 @@ this release. "Simplest credible architecture" was the tie-breaker.
 ## Things deliberately not built
 
 * Online learning / automatic retraining: unsafe without delayed-label handling and an approval step.
-* GNNs: the ULB data has no entity identifiers; inventing relationships would produce meaningless
-  "graph" gains. Past-only entity features are implemented for IEEE-CIS, which does have them.
+* GNNs: the ULB data has no entity identifiers, and IEEE-CIS's `DeviceInfo` is a device model, not
+  a device ID. Past-only entity statistics were tested on IEEE-CIS instead: cumulative counts hurt
+  (drift), trailing-window counts were neutral (benchmarks/results/ieee-cis/report.md).
 * Grafana alert rules and PagerDuty routing: the dashboards are provisioned, alerting is environment-specific.

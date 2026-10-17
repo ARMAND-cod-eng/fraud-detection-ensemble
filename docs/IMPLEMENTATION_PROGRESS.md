@@ -8,11 +8,11 @@ Hardware: Windows 11 laptop, 8 CPU cores, 8 GB RAM, no GPU. Python 3.12.13, Node
 | Phase | Status | Evidence |
 |---|---|---|
 | 1. Scientific credibility | **Done** | `docs/PROJECT_AUDIT.md`, `benchmarks/results/legacy_reproduction.json`, `benchmarks/results/creditcard-chronological/`, `docs/ML_EVALUATION.md` |
-| 2. Engineering foundation | **Done** | `src/fraudshield/`, `api/`, 55 passing tests, ruff + mypy clean, Docker image built and healthy |
+| 2. Engineering foundation | **Done** | `src/fraudshield/`, `api/`, 58 passing tests, ruff + mypy clean, Docker image built and healthy |
 | 3. Product experience | **Done** | Replay engine, decision engine, investigation workflow, React dashboard (screenshots in `docs/images/`) |
 | 4. Operational credibility | **Done (local)** | Load tests, Prometheus metrics, PSI drift, registry gate/rollback, MLflow (optional), CI workflow file |
 | 5. Portfolio delivery | **Done** | README, 9 docs, demo script, resume bullets |
-| 6. Advanced research | **Partially done** | IEEE-CIS loader + past-only entity/graph features + benchmark script, unit-tested on synthetic data; **not run on real data** (Kaggle terms) |
+| 6. Advanced research | **Done** | IEEE-CIS benchmark run on real data (2026-10-17): cumulative entity counts hurt (drift), windowed counts fixed the drift but added nothing; see `benchmarks/results/ieee-cis/report.md` |
 
 ## Log
 
@@ -52,12 +52,17 @@ Hardware: Windows 11 laptop, 8 CPU cores, 8 GB RAM, no GPU. Python 3.12.13, Node
 12. **MLflow:** optional; verified a tracked run (124 metrics, 11 params) on synthetic data. Found
     that `mlflow-skinny` cannot use SQLite and MLflow 3 gates the file store — fixed by an explicit
     file-store opt-in and by making tracking failures non-fatal.
+13. **IEEE-CIS (2026-10-17):** after the user accepted the Kaggle rules and downloaded the data,
+    ran the out-of-time benchmark (590,540 rows; ~35 min per two variants). Cumulative entity counts
+    reduced test PR-AUC (0.508 → 0.498, CI excludes 0); diagnosed as drift (test medians 3–4× train).
+    Added trailing-window counts (unit-tested against hand-computed values): 0.505, CI touches 0.
+    Validation selects the original columns. Baseline reproduced exactly across runs.
 
 ## Validation performed
 
 | Check | Result |
 |---|---|
-| `pytest -q` | **55 passed**, 2 skipped (performance, opt-in) in ~25 s |
+| `pytest -q` | **58 passed**, 2 skipped (performance, opt-in) in ~37 s |
 | `FRAUDSHIELD_RUN_PERF=1 pytest tests/performance` | 2 passed (in-process p95 < 10 ms, HTTP p95 < 50 ms) |
 | `ruff check .` / `ruff format --check .` | clean |
 | `mypy` (src + api, 46 files) | no issues |
@@ -73,7 +78,7 @@ Hardware: Windows 11 laptop, 8 CPU cores, 8 GB RAM, no GPU. Python 3.12.13, Node
 * **`trainer` Docker target and the `monitoring` Compose profile** (Prometheus/Grafana) were not
   built or started (disk/RAM limits on this machine); configs are provided, untested.
 * **AWS:** design + task-definition template only; nothing provisioned.
-* **IEEE-CIS:** not downloaded or run; requires your Kaggle account to accept competition rules.
+* **IEEE-CIS:** benchmark only (no IEEE-CIS model is served by the API); one seed, fixed hyper-parameters.
 * Seed variance for the autoencoder/stacked models not quantified; XGBoost `hist` is deterministic.
 * The MLflow run for the production model was not recorded (MLflow was installed after it);
   re-running `fraudshield train` with `pip install -e .[tracking]` records it.
@@ -83,6 +88,5 @@ Hardware: Windows 11 laptop, 8 CPU cores, 8 GB RAM, no GPU. Python 3.12.13, Node
 ## Next actions (suggested order)
 
 1. Review and commit the branch; push and let CI run.
-2. Accept the IEEE-CIS rules on Kaggle, run `python benchmarks/ieee_cis_benchmark.py`, add results.
 3. Record a 90-second screen capture following `docs/DEMO_SCRIPT.md`.
 4. Optional: deploy to AWS following `docs/DEPLOYMENT.md` (costs money; your decision).
