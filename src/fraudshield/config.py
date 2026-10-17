@@ -37,6 +37,13 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_json: bool = True
 
+    # Public demo (e.g. a Hugging Face Space): caps replay load and disables state-changing admin
+    # actions (policy changes, reset). What-if simulation and analyst reviews stay available.
+    demo_mode: bool = False
+    demo_max_replay_tps: float = Field(default=100.0, gt=0)
+    demo_max_replay_count: int = Field(default=5000, ge=1)
+    demo_note: str = ""  # shown in the dashboard banner, e.g. how the demo model was trained
+
 
 @lru_cache
 def get_settings() -> Settings:

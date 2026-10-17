@@ -279,3 +279,40 @@ def test_sse_stream_delivers_events(live_server) -> None:
                 if len(seen) == 3:
                     break
     assert len(seen) == 3
+
+
+def test_public_demo_mode_limits(client_factory) -> None:
+    c = client_factory(demo_mode=True, demo_max_replay_tps=100, demo_max_replay_count=5000)
+    cfg = c.get("/api/v1/config").json()
+    assert cfg["demo_mode"] is True and cfg["policy_changes_allowed"] is False
+    assert "Open Database License" in cfg["data_attribution"]
+    # state-changing admin actions are refused ...
+    assert c.post("/api/v1/admin/reset").json()["error"]["code"] == "disabled_in_demo"
+    r = c.put("/api/v1/policy", json={"review_threshold": 0.2, "decline_threshold": 0.9})
+    assert r.status_code == 403
+    # ... replays are capped ...
+    too_fast = c.post("/api/v1/replay/start", json={"scenario": "historical", "rate_tps": 500, "count": 10})
+    assert too_fast.status_code == 422 and too_fast.json()["error"]["code"] == "demo_limit"
+    assert (
+        c.post(
+            "/api/v1/replay/start", json={"scenario": "historical", "rate_tps": 50, "count": 6000}
+        ).status_code
+        == 422
+    )
+    ok = c.post("/api/v1/replay/start", json={"scenario": "historical", "rate_tps": 50, "count": 20})
+    assert ok.status_code == 200
+    assert c.patch("/api/v1/replay", json={"rate_tps": 500}).status_code == 422
+    c.post("/api/v1/replay/stop")
+    # ... while scoring, what-if simulation and analyst reviews keep working.
+    assert c.post("/api/v1/transactions/score", json=txn_payload(transaction_id="demo-1")).status_code == 200
+    sim = c.post("/api/v1/policy/simulate", json={"review_threshold": 0.2, "decline_threshold": 0.9})
+    assert sim.status_code == 200
+    assert (
+        c.post("/api/v1/transactions/demo-1/review", json={"decision": "note", "notes": "ok"}).status_code
+        == 200
+    )
+
+
+def test_config_endpoint_outside_demo(client) -> None:
+    cfg = client.get("/api/v1/config").json()
+    assert cfg["demo_mode"] is False and cfg["policy_changes_allowed"] is True

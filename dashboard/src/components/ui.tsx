@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { api, type ReplayStatus } from "../lib/api";
 import { ACTION_LABEL, RISK_LABEL, STATUS_LABEL, fmtInt, fmtProb } from "../lib/format";
+import { usePublicConfig } from "../lib/config";
 
 export function Card({ title, sub, actions, children, flush, className = "" }: {
   title?: ReactNode; sub?: ReactNode; actions?: ReactNode; children: ReactNode; flush?: boolean; className?: string;
@@ -115,6 +116,9 @@ export function ReplayBar({ status, onChange }: { status: ReplayStatus | null; o
   const [count, setCount] = useState(3000);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const cfg = usePublicConfig();
+  const maxRate = Math.min(200, cfg.max_replay_tps);
+  const counts = [500, 1000, 3000, 10000, 50000].filter((n) => n <= cfg.max_replay_count);
   const running = status?.state === "running";
   const paused = status?.state === "paused";
 
@@ -151,13 +155,13 @@ export function ReplayBar({ status, onChange }: { status: ReplayStatus | null; o
           </select>
           <label className="row small ink2" style={{ gap: 6 }}>
             <span className="nowrap">{rate} tx/s</span>
-            <input type="range" min={1} max={200} value={rate} style={{ width: 110 }}
+            <input type="range" min={1} max={maxRate} value={Math.min(rate, maxRate)} style={{ width: 110 }}
               onChange={(e) => setRate(+e.target.value)}
               onPointerUp={() => (running || paused) && act(() => api.replayRate(rate))}
               onKeyUp={() => (running || paused) && act(() => api.replayRate(rate))} aria-label="Replay speed" />
           </label>
           <select className="select" value={count} onChange={(e) => setCount(+e.target.value)} disabled={running || paused} aria-label="Transactions">
-            {[500, 1000, 3000, 10000, 50000].map((n) => <option key={n} value={n}>{fmtInt(n)} txns</option>)}
+            {counts.map((n) => <option key={n} value={n}>{fmtInt(n)} txns</option>)}
           </select>
           {!running && !paused && (
             <button className="btn primary" disabled={busy} onClick={() => act(() => api.replayStart({ scenario, rate_tps: rate, count, seed: 42 }))}>

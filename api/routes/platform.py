@@ -16,6 +16,7 @@ from fastapi.responses import StreamingResponse
 
 from api.deps import ApiError, AppState, get_service, get_state, require_api_key
 from api.schemas import PolicyIn, ReplayRateIn, ReplayStartIn
+from fraudshield import __version__
 from fraudshield.data.schema import AMOUNT_COLUMN, LABEL_COLUMN, TIME_COLUMN
 from fraudshield.decision_engine.policy import CostAssumptions, PolicyConfig
 from fraudshield.decision_engine.simulate import capacity_curve, simulate_policy
@@ -25,6 +26,31 @@ from fraudshield.streaming.replay import SCENARIOS
 router = APIRouter(prefix="/api/v1")
 _sim_cache: dict[str, Any] = {}
 _sim_lock = threading.Lock()
+DATA_ATTRIBUTION = (
+    "Data: Credit Card Fraud Detection, Machine Learning Group - ULB and Worldline "
+    "(Open Database License 1.0 / Database Contents License 1.0)."
+)
+
+
+def _forbid_in_demo(state: AppState, action: str) -> None:
+    if state.settings.demo_mode:
+        raise ApiError(403, "disabled_in_demo", f"{action} is disabled in the public demo")
+
+
+@router.get("/config", tags=["ops"])
+def public_config(state: AppState = Depends(get_state)) -> dict[str, Any]:
+    """Non-secret settings the dashboard adapts to (demo limits, version, data attribution)."""
+    s = state.settings
+    return {
+        "version": __version__,
+        "environment": s.environment,
+        "demo_mode": s.demo_mode,
+        "max_replay_tps": s.demo_max_replay_tps if s.demo_mode else 1000.0,
+        "max_replay_count": s.demo_max_replay_count if s.demo_mode else 200_000,
+        "policy_changes_allowed": not s.demo_mode,
+        "demo_note": s.demo_note,
+        "data_attribution": DATA_ATTRIBUTION,
+    }
 
 
 # --------------------------------------------------------------------------- models
@@ -94,8 +120,11 @@ def _policy_from(body: PolicyIn, base: PolicyConfig) -> PolicyConfig:
 
 
 @router.put("/policy", tags=["policy"], dependencies=[Depends(require_api_key)])
-def update_policy(body: PolicyIn, service: Any = Depends(get_service)) -> dict[str, Any]:
+def update_policy(
+    body: PolicyIn, state: AppState = Depends(get_state), service: Any = Depends(get_service)
+) -> dict[str, Any]:
     """Replace the active policy. Every later decision records the new policy version."""
+    _forbid_in_demo(state, "changing the live policy")
     policy = _policy_from(body, service.engine.policy)
     service.engine.update(policy, actor="api")
     service.store.add_policy_version(policy.version, "api", policy.model_dump())
@@ -223,6 +252,14 @@ def replay_status(state: AppState = Depends(get_state)) -> dict[str, Any]:
 @router.post("/replay/start", tags=["replay"], dependencies=[Depends(require_api_key)])
 async def replay_start(body: ReplayStartIn, state: AppState = Depends(get_state)) -> dict[str, Any]:
     rep = _replay(state)
+    s = state.settings
+    if s.demo_mode and (body.rate_tps > s.demo_max_replay_tps or body.count > s.demo_max_replay_count):
+        raise ApiError(
+            422,
+            "demo_limit",
+            f"the public demo allows at most {s.demo_max_replay_tps:g} tx/s "
+            f"and {s.demo_max_replay_count} transactions per replay",
+        )
     try:
         status = await rep.start(body.scenario, body.rate_tps, body.count, body.seed)
     except RuntimeError as exc:
@@ -247,6 +284,10 @@ async def replay_stop(state: AppState = Depends(get_state)) -> dict[str, Any]:
 
 @router.patch("/replay", tags=["replay"], dependencies=[Depends(require_api_key)])
 def replay_rate(body: ReplayRateIn, state: AppState = Depends(get_state)) -> dict[str, Any]:
+    if state.settings.demo_mode and body.rate_tps > state.settings.demo_max_replay_tps:
+        raise ApiError(
+            422, "demo_limit", f"the public demo allows at most {state.settings.demo_max_replay_tps:g} tx/s"
+        )
     return _replay(state).set_rate(body.rate_tps).to_dict()
 
 
@@ -255,6 +296,7 @@ async def reset_demo(
     state: AppState = Depends(get_state), service: Any = Depends(get_service)
 ) -> dict[str, str]:
     """Clear stored predictions and case history (demo convenience)."""
+    _forbid_in_demo(state, "resetting the data")
     if state.replay and state.replay.running:
         await state.replay.stop()
     service.store.reset()

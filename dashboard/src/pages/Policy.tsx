@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api, type PolicyInput, type Simulation } from "../lib/api";
 import { fmtEur, fmtInt, fmtPct } from "../lib/format";
 import { useDebounced, usePoll } from "../lib/hooks";
+import { usePublicConfig } from "../lib/config";
 import { CurveChart } from "../components/charts";
 import { Card, ErrorNote, Icon, PageHead, Stat } from "../components/ui";
 
@@ -16,6 +17,7 @@ export default function Policy() {
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
   const debounced = useDebounced(draft, 250);
+  const cfg = usePublicConfig();
 
   useEffect(() => {
     if (pol.data && !draft) {
@@ -71,7 +73,9 @@ export default function Policy() {
                   Also review when p × amount ≥ review cost</span></label>
             </div>
             <div className="row">
-              <button className="btn primary" onClick={apply}>Apply to live decisions</button>
+              <button className="btn primary" onClick={apply} disabled={!cfg.policy_changes_allowed}
+                title={cfg.policy_changes_allowed ? undefined : "Disabled in the public demo; the what-if still works"}>Apply to live decisions</button>
+              {!cfg.policy_changes_allowed && <span className="small muted">Disabled in the public demo; the what-if still works.</span>}
               {saved && <span className="small ink2">Applied as <span className="mono">{saved}</span></span>}
             </div>
             <ErrorNote error={error} />
