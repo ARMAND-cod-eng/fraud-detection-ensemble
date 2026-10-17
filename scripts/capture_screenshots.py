@@ -39,6 +39,36 @@ def find_browser() -> str:
     raise SystemExit("no Chromium-based browser found; set BROWSER_PATH")
 
 
+def capture_page(
+    browser: str,
+    url: str,
+    page: str,
+    target: Path,
+    profile: str,
+    width: int = 1440,
+    height: int = 1000,
+    wait_ms: int = 6000,
+    theme: str = "light",
+) -> Path:
+    """Render ``{url}/#/{page}`` headlessly and save a PNG to ``target``."""
+    cmd = [
+        browser,
+        "--headless=new",
+        "--disable-gpu",
+        "--hide-scrollbars",
+        "--no-first-run",
+        f"--user-data-dir={profile}",
+        f"--window-size={width},{height}",
+        f"--screenshot={target}",
+        # pages with an open SSE stream never go idle, so they use a hard timeout instead
+        f"--timeout={wait_ms}" if page.startswith("live") else f"--virtual-time-budget={wait_ms}",
+        *(["--force-dark-mode", "--blink-settings=preferredColorScheme=0"] if theme == "dark" else []),
+        f"{url}/#/{page}",
+    ]
+    subprocess.run(cmd, check=True, capture_output=True, timeout=wait_ms / 1000 + 60)
+    return target
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--url", default="http://localhost:8000")
@@ -56,28 +86,17 @@ def main() -> None:
     with tempfile.TemporaryDirectory() as profile:
         for page in args.pages:
             name = page.split("/")[0] + ("_dark" if args.theme == "dark" else "")
-            target = out / f"{name}.png"
-            cmd = [
+            target = capture_page(
                 browser,
-                "--headless=new",
-                "--disable-gpu",
-                "--hide-scrollbars",
-                "--no-first-run",
-                f"--user-data-dir={profile}",
-                f"--window-size={args.width},{args.height}",
-                f"--screenshot={target}",
-                # pages with an open SSE stream never go idle, so they use a hard timeout instead
-                f"--timeout={args.wait_ms}"
-                if page.startswith("live")
-                else f"--virtual-time-budget={args.wait_ms}",
-                *(
-                    ["--force-dark-mode", "--blink-settings=preferredColorScheme=0"]
-                    if args.theme == "dark"
-                    else []
-                ),
-                f"{args.url}/#/{page}",
-            ]
-            subprocess.run(cmd, check=True, capture_output=True, timeout=args.wait_ms / 1000 + 60)
+                args.url,
+                page,
+                out / f"{name}.png",
+                profile,
+                args.width,
+                args.height,
+                args.wait_ms,
+                args.theme,
+            )
             print(f"wrote {target}")
 
 
