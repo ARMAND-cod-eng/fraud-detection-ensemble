@@ -46,7 +46,16 @@ def evaluate_gate(registry: ModelRegistry, version: str, gate: dict[str, Any]) -
         "finite, in [0, 1], deterministic on 64 synthetic probe rows",
     )
 
-    for name, (value, op, limit, _) in meta.get("gate_checks", {}).items():
+    # Measured values come from the artifact; limits come from the gate config in force *now*, so
+    # tightening the gate after training applies to every later promotion.
+    current_limits = {
+        "test_pr_auc": gate.get("min_test_pr_auc"),
+        "test_roc_auc": gate.get("min_test_roc_auc"),
+        "p95_latency_ms": gate.get("max_p95_latency_ms"),
+    }
+    for name, (value, op, recorded_limit, _) in meta.get("gate_checks", {}).items():
+        limit = current_limits.get(name)
+        limit = recorded_limit if limit is None else limit
         ok = value >= limit if op == ">=" else value <= limit
         check(name, ok, {"value": value, "op": op, "limit": limit})
 

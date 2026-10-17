@@ -1,0 +1,18 @@
+# Weekly dependency update PRs. Pinned versions mean upgrades arrive as reviewable PRs that must
+# pass CI (tests, coverage, pip-audit, npm audit, image build) before merging.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /requirements
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+  - package-ecosystem: npm
+    directory: /dashboard
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }
+  - package-ecosystem: docker
+    directory: /
+    schedule: { interval: weekly }

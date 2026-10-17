@@ -36,8 +36,10 @@ jobs:
           ruff format --check .
       - name: Mypy
         run: mypy
-      - name: Tests (unit + integration; model trained on synthetic data, no dataset needed)
-        run: pytest -q --durations=10
+      - name: Tests with coverage (unit + integration; model trained on synthetic data, no dataset needed)
+        run: pytest -q --durations=10 --cov=src/fraudshield --cov=api --cov-report=term --cov-fail-under=88
+      - name: Dependency vulnerability audit (runtime image dependencies)
+        run: pip-audit -r requirements/serve.txt --progress-spinner off
 
   dashboard:
     name: Dashboard type-check and build
@@ -54,6 +56,8 @@ jobs:
           cache: npm
           cache-dependency-path: dashboard/package-lock.json
       - run: npm ci --no-audit --no-fund
+      - name: Dependency vulnerability audit
+        run: npm audit --audit-level=high
       - run: npm run build
 
   docker:
