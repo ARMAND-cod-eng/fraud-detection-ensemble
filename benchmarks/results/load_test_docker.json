@@ -1,0 +1,72 @@
+{
+  "label": "docker-linux-container (client inside container)",
+  "endpoint": "POST /api/v1/transactions/score",
+  "model_version": "xgboost-20261016-204043",
+  "server": "uvicorn, 1 worker, same machine as the client (loopback)",
+  "client": {
+    "python": "3.12.15",
+    "platform": "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.41",
+    "cpus": 8,
+    "method": "one process + one keep-alive connection per concurrent client"
+  },
+  "payloads": "3000 real held-out transactions (seed 0), unique IDs",
+  "levels": [
+    {
+      "concurrency": 1,
+      "requests": 3000,
+      "ok": 3000,
+      "errors": {},
+      "throughput_rps": 287.8492923441467,
+      "latency_ms": {
+        "p50": 3.100860499998248,
+        "p95": 4.836386050008911,
+        "p99": 6.517616020001068,
+        "mean": 3.3811831226667266,
+        "max": 40.68202700000256
+      }
+    },
+    {
+      "concurrency": 2,
+      "requests": 3000,
+      "ok": 3000,
+      "errors": {},
+      "throughput_rps": 272.6333815579616,
+      "latency_ms": {
+        "p50": 6.642880000015339,
+        "p95": 10.84780499998885,
+        "p99": 14.965498000001954,
+        "mean": 7.220277963000077,
+        "max": 55.34218299999338
+      }
+    },
+    {
+      "concurrency": 4,
+      "requests": 3000,
+      "ok": 3000,
+      "errors": {},
+      "throughput_rps": 251.2896418748609,
+      "latency_ms": {
+        "p50": 15.35603849998779,
+        "p95": 20.318141200019106,
+        "p99": 24.98174916995422,
+        "mean": 15.73814675966697,
+        "max": 67.5010630000088
+      }
+    },
+    {
+      "concurrency": 8,
+      "requests": 3000,
+      "ok": 3000,
+      "errors": {},
+      "throughput_rps": 238.81787075980023,
+      "latency_ms": {
+        "p50": 31.934272499995586,
+        "p95": 40.48224500000117,
+        "p99": 74.54373330002333,
+        "mean": 33.31067654833345,
+        "max": 112.34254799995824
+      }
+    }
+  ],
+  "measured_at": "2026-10-16T21:16:31"
+}
