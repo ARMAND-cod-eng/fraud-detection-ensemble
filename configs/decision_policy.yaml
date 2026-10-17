@@ -1,0 +1,24 @@
+# Example fraud decision policy. These values are ILLUSTRATIVE: they were derived from the
+# public dataset under stated cost assumptions and are not validated financial decisions.
+# The model produces a calibrated probability; this policy alone decides what to do with it.
+policy_id: example-balanced
+description: >-
+  Approve below the review threshold, route to manual review above it, recommend decline at
+  high confidence. Review threshold defaults to the model's validation cost-optimal value.
+
+# "model" = use the threshold stored with the model (chosen on validation data).
+review_threshold: model
+# Recommend decline only when the calibrated fraud probability is at least 90%.
+decline_threshold: 0.90
+
+# Optional amount-aware rule: also review when p * amount * loss_rate >= review_cost.
+expected_loss_review: false
+
+# Investigation capacity. Alerts beyond this rate are still queued but flagged so the
+# dashboard can show that the review team is over capacity.
+max_reviews_per_hour: 120
+
+cost_assumptions:
+  review_cost: 5.0 # EUR per manual review (assumption)
+  loss_rate: 1.0 # share of a missed fraud's amount that is lost (assumption)
+  false_decline_cost: 15.0 # EUR customer-friction cost of declining a legitimate payment (assumption)

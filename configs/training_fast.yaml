@@ -1,0 +1,20 @@
+# Quick configuration for demos on modest hardware (~3 min). Same protocol as training.yaml with a
+# smaller grid and fewer bootstrap resamples. Benchmarks in the README come from training.yaml.
+experiment_name: creditcard-chronological-fast
+seed: 42
+data: { path: data/raw/creditcard.csv, drop_duplicates: true }
+split: { strategy: chronological, train_frac: 0.6, val_frac: 0.2 }
+features: { engineered: true }
+xgboost:
+  base_params: { learning_rate: 0.05, subsample: 0.8, colsample_bytree: 0.7, tree_method: hist, n_estimators: 1500, early_stopping_rounds: 100, eval_metric: aucpr }
+  grid: { max_depth: [3], min_child_weight: [5], scale_pos_weight: [1] }
+  early_stopping_frac: 0.15
+logreg: { grid: { C: [0.01], class_weight: [balanced] } }
+isolation_forest: { n_estimators: 100, max_samples: 256 }
+autoencoder: { hidden: [32, 16], latent: 8, epochs: 15, batch_size: 1024, lr: 0.001, weight_decay: 0.00001, patience: 3 }
+stacking: { oof_folds: 3 }
+selection: { primary_metric: pr_auc, eligible: [logreg, xgboost, stacked], simpler_model: xgboost, min_improvement: 0.01 }
+evaluation: { bootstrap: 300, latency_repeats: 300 }
+cost_assumptions: { review_cost: 5.0, loss_rate: 1.0 }
+gate: { min_test_pr_auc: 0.60, min_test_roc_auc: 0.95, max_pr_auc_regression: 0.02, max_p95_latency_ms: 50 }
+tracking: { mlflow: false, uri: mlruns }

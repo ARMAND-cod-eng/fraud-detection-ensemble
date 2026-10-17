@@ -1,0 +1,189 @@
+{
+  "model_version": "xgboost-20261016-204043",
+  "assumptions": {
+    "review_cost": 5.0,
+    "loss_rate": 1.0,
+    "false_decline_cost": 15.0
+  },
+  "note": "Illustrative cost assumptions; thresholds searched on validation, costs reported on test.",
+  "test_window_hours": 7.655,
+  "validation_tuned_policy": {
+    "review_threshold": 0.4783825975134207,
+    "decline_threshold": 0.8,
+    "validation_cost": 4539.860000000001
+  },
+  "test_policies": [
+    {
+      "policy": "approve everything",
+      "review_threshold": null,
+      "decline_threshold": null,
+      "approved": 56746,
+      "reviewed": 0,
+      "declined": 0,
+      "frauds_stopped": "0/74",
+      "legit_declined": 0,
+      "fraud_loss": 7727.67,
+      "review_cost": 0.0,
+      "false_decline_cost": 0.0,
+      "total_cost": 7727.67,
+      "validation_total_cost": 12231.09
+    },
+    {
+      "policy": "example policy (configs/decision_policy.yaml)",
+      "review_threshold": 0.533360763576917,
+      "decline_threshold": 0.9,
+      "approved": 56691,
+      "reviewed": 15,
+      "declined": 40,
+      "frauds_stopped": "52/74",
+      "legit_declined": 0,
+      "fraud_loss": 3641.2,
+      "review_cost": 75.0,
+      "false_decline_cost": 0.0,
+      "total_cost": 3716.2,
+      "validation_total_cost": 4569.86
+    },
+    {
+      "policy": "review-only (never auto-decline)",
+      "review_threshold": 0.533360763576917,
+      "decline_threshold": 1.0,
+      "approved": 56691,
+      "reviewed": 55,
+      "declined": 0,
+      "frauds_stopped": "52/74",
+      "legit_declined": 0,
+      "fraud_loss": 3641.2,
+      "review_cost": 275.0,
+      "false_decline_cost": 0.0,
+      "total_cost": 3916.2,
+      "validation_total_cost": 4694.86
+    },
+    {
+      "policy": "example + expected-loss review rule",
+      "review_threshold": 0.533360763576917,
+      "decline_threshold": 0.9,
+      "approved": 56633,
+      "reviewed": 73,
+      "declined": 40,
+      "frauds_stopped": "54/74",
+      "legit_declined": 0,
+      "fraud_loss": 2407.67,
+      "review_cost": 365.0,
+      "false_decline_cost": 0.0,
+      "total_cost": 2772.67,
+      "validation_total_cost": 4909.86
+    },
+    {
+      "policy": "two thresholds tuned on validation",
+      "review_threshold": 0.4783825975134207,
+      "decline_threshold": 0.8,
+      "approved": 56689,
+      "reviewed": 10,
+      "declined": 47,
+      "frauds_stopped": "52/74",
+      "legit_declined": 0,
+      "fraud_loss": 3641.2,
+      "review_cost": 50.0,
+      "false_decline_cost": 0.0,
+      "total_cost": 3691.2,
+      "validation_total_cost": 4539.86
+    }
+  ],
+  "sensitivity_validation": [
+    {
+      "review_cost": 1.0,
+      "best_review_threshold": 0.4784,
+      "best_decline_threshold": 0.8,
+      "validation_reviews": 10,
+      "validation_frauds_stopped": "43/57",
+      "validation_total_cost": 4499.86
+    },
+    {
+      "review_cost": 2.5,
+      "best_review_threshold": 0.4784,
+      "best_decline_threshold": 0.8,
+      "validation_reviews": 10,
+      "validation_frauds_stopped": "43/57",
+      "validation_total_cost": 4514.86
+    },
+    {
+      "review_cost": 5.0,
+      "best_review_threshold": 0.4784,
+      "best_decline_threshold": 0.8,
+      "validation_reviews": 10,
+      "validation_frauds_stopped": "43/57",
+      "validation_total_cost": 4539.86
+    },
+    {
+      "review_cost": 10.0,
+      "best_review_threshold": 0.4784,
+      "best_decline_threshold": 0.8,
+      "validation_reviews": 10,
+      "validation_frauds_stopped": "43/57",
+      "validation_total_cost": 4589.86
+    },
+    {
+      "review_cost": 20.0,
+      "best_review_threshold": 0.4784,
+      "best_decline_threshold": 0.8,
+      "validation_reviews": 10,
+      "validation_frauds_stopped": "43/57",
+      "validation_total_cost": 4689.86
+    },
+    {
+      "review_cost": 50.0,
+      "best_review_threshold": 0.4784,
+      "best_decline_threshold": 0.8,
+      "validation_reviews": 10,
+      "validation_frauds_stopped": "43/57",
+      "validation_total_cost": 4989.86
+    }
+  ],
+  "capacity_test": [
+    {
+      "reviews_per_hour": 5,
+      "reviews": 38,
+      "frauds_caught": 38,
+      "recall": 0.5135135135135135,
+      "precision": 1.0,
+      "residual_fraud_loss": 4436.17
+    },
+    {
+      "reviews_per_hour": 10,
+      "reviews": 77,
+      "frauds_caught": 58,
+      "recall": 0.7837837837837838,
+      "precision": 0.7532467532467533,
+      "residual_fraud_loss": 3394.0600000000004
+    },
+    {
+      "reviews_per_hour": 25,
+      "reviews": 191,
+      "frauds_caught": 60,
+      "recall": 0.8108108108108109,
+      "precision": 0.31413612565445026,
+      "residual_fraud_loss": 2389.790000000001
+    },
+    {
+      "reviews_per_hour": 50,
+      "reviews": 383,
+      "frauds_caught": 63,
+      "recall": 0.8513513513513513,
+      "precision": 0.16449086161879894,
+      "residual_fraud_loss": 2353.0299999999997
+    },
+    {
+      "reviews_per_hour": 100,
+      "reviews": 766,
+      "frauds_caught": 64,
+      "recall": 0.8648648648648649,
+      "precision": 0.0835509138381201,
+      "residual_fraud_loss": 1718.7300000000005
+    }
+  ],
+  "fraud_amounts_test": {
+    "n": 74,
+    "median": 4.795,
+    "share_below_review_cost": 0.527027027027027
+  }
+}
