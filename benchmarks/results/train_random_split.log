@@ -1,0 +1,48 @@
+[15:18:19] data: 283726 rows, split {'strategy': 'stratified-random seed=42', 'train': {'rows': 170235, 'frauds': 284, 'fraud_rate': 0.001668, 'time_start_s': 0.0, 'time_end_s': 172792.0}, 'validation': {'rows': 56745, 'frauds': 94, 'fraud_rate': 0.001657, 'time_start_s': 1.0, 'time_end_s': 172788.0}, 'test': {'rows': 56746, 'frauds': 95, 'fraud_rate': 0.001674, 'time_start_s': 2.0, 'time_end_s': 172782.0}}
+[15:18:30] xgboost {'max_depth': 3, 'min_child_weight': 1, 'scale_pos_weight': 1} trees=225 val PR-AUC=0.7784
+[15:18:49] xgboost {'max_depth': 3, 'min_child_weight': 1, 'scale_pos_weight': 10} trees=542 val PR-AUC=0.7976
+[15:18:58] xgboost {'max_depth': 3, 'min_child_weight': 5, 'scale_pos_weight': 1} trees=243 val PR-AUC=0.7791
+[15:19:09] xgboost {'max_depth': 3, 'min_child_weight': 5, 'scale_pos_weight': 10} trees=250 val PR-AUC=0.7833
+[15:19:20] xgboost {'max_depth': 5, 'min_child_weight': 1, 'scale_pos_weight': 1} trees=173 val PR-AUC=0.7922
+[15:19:28] xgboost {'max_depth': 5, 'min_child_weight': 1, 'scale_pos_weight': 10} trees=110 val PR-AUC=0.7905
+[15:19:39] xgboost {'max_depth': 5, 'min_child_weight': 5, 'scale_pos_weight': 1} trees=206 val PR-AUC=0.7828
+[15:19:48] xgboost {'max_depth': 5, 'min_child_weight': 5, 'scale_pos_weight': 10} trees=118 val PR-AUC=0.7904
+[15:19:55] logreg best {'C': 0.1, 'class_weight': 'balanced'} val PR-AUC=0.7191
+[15:20:10] fitting isolation forest + autoencoder on train
+[15:21:24] computing out-of-fold detector scores for stacking
+[15:24:40] stacked: trees=501 val PR-AUC=0.7944
+[15:24:59] stacked_insample: trees=520 val PR-AUC=0.7945
+[15:25:49] logreg: val PR-AUC gain -0.0785 vs xgboost (90% CI low -0.1322) -> does not qualify | stacked: val PR-AUC gain -0.0031 vs xgboost (90% CI low -0.0141) -> does not qualify | selected: xgboost
+[15:25:49] scoring test split (final report)
+[15:29:50] latency logreg: p50=0.124 ms p95=0.232 ms
+[15:29:51] latency xgboost: p50=0.685 ms p95=1.306 ms
+[15:30:07] latency stacked: p50=27.755 ms p95=69.747 ms
+[15:30:28] saved model artifact artifacts\experiments\models\xgboost-20261016-203028
+[15:30:36] wrote benchmark report to benchmarks/results/creditcard-random-split
+[15:30:36] done in 742.2 s
+{
+  "version": "xgboost-20261016-203028",
+  "selected_model": "xgboost",
+  "validation": {
+    "roc_auc": 0.9730370386506106,
+    "pr_auc": 0.797589272883639,
+    "recall@fpr=0.001": 0.7978723404255319,
+    "recall@fpr=0.005": 0.8297872340425532,
+    "recall@fpr=0.01": 0.8404255319148937,
+    "precision@top0.10%(k=57)": 0.9824561403508771,
+    "precision@top0.25%(k=142)": 0.5352112676056338,
+    "precision@top0.50%(k=284)": 0.2746478873239437
+  },
+  "test": {
+    "roc_auc": 0.9744710224839253,
+    "pr_auc": 0.8715868389099541,
+    "recall@fpr=0.001": 0.8947368421052632,
+    "recall@fpr=0.005": 0.9052631578947369,
+    "recall@fpr=0.01": 0.9052631578947369,
+    "precision@top0.10%(k=57)": 0.9649122807017544,
+    "precision@top0.25%(k=142)": 0.5985915492957746,
+    "precision@top0.50%(k=284)": 0.2992957746478873
+  },
+  "review_threshold": 0.15480778701028988
+}
+EXIT 0

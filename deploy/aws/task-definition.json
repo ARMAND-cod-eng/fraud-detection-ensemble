@@ -1,0 +1,46 @@
+{
+  "family": "fraudshield-api",
+  "requiresCompatibilities": ["FARGATE"],
+  "networkMode": "awsvpc",
+  "cpu": "1024",
+  "memory": "2048",
+  "runtimePlatform": { "cpuArchitecture": "X86_64", "operatingSystemFamily": "LINUX" },
+  "executionRoleArn": "arn:aws:iam::<account-id>:role/fraudshield-ecs-execution",
+  "taskRoleArn": "arn:aws:iam::<account-id>:role/fraudshield-ecs-task",
+  "containerDefinitions": [
+    {
+      "name": "api",
+      "image": "<account-id>.dkr.ecr.<region>.amazonaws.com/fraudshield-api:<git-sha>",
+      "essential": true,
+      "readonlyRootFilesystem": true,
+      "portMappings": [{ "containerPort": 8000, "protocol": "tcp" }],
+      "environment": [
+        { "name": "FRAUDSHIELD_ENVIRONMENT", "value": "aws" },
+        { "name": "FRAUDSHIELD_MODEL_VERSION", "value": "<promoted-version>" },
+        { "name": "FRAUDSHIELD_ENABLE_DOCS", "value": "false" },
+        { "name": "FRAUDSHIELD_CORS_ORIGINS", "value": "[\"https://<dashboard-host>\"]" }
+      ],
+      "secrets": [
+        { "name": "FRAUDSHIELD_API_KEY", "valueFrom": "arn:aws:secretsmanager:<region>:<account-id>:secret:fraudshield/api-key" }
+      ],
+      "mountPoints": [
+        { "sourceVolume": "artifacts", "containerPath": "/app/artifacts", "readOnly": true },
+        { "sourceVolume": "var", "containerPath": "/app/var" },
+        { "sourceVolume": "tmp", "containerPath": "/tmp" }
+      ],
+      "healthCheck": {
+        "command": ["CMD-SHELL", "python -c \"import sys,urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=2).status == 200 else 1)\""],
+        "interval": 15, "timeout": 3, "retries": 3, "startPeriod": 30
+      },
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/fraudshield-api",
+          "awslogs-region": "<region>",
+          "awslogs-stream-prefix": "api"
+        }
+      }
+    }
+  ],
+  "volumes": [{ "name": "artifacts" }, { "name": "var" }, { "name": "tmp" }]
+}

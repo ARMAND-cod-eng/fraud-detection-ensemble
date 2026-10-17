@@ -1,27 +1,18 @@
-#  Notebooks Directory
+# Notebooks
 
-This folder contains all Jupyter notebooks for the fraud detection analysis.
+### `01_fraud_detection_complete.ipynb` (original, kept unchanged)
 
-## Main Notebooks
+The original Kaggle notebook: EDA, feature engineering, autoencoder, Isolation Forest, XGBoost
+stacking, evaluation and a business-impact table. It is preserved as the historical starting
+point of the project. It does not run unmodified on current libraries (Kaggle paths; XGBoost ≥ 2
+API changes).
 
-###  01_fraud_detection_complete.ipynb
-- **Purpose**: Complete end-to-end fraud detection analysis
-- **Contents**: EDA, Feature Engineering, Model Training, Evaluation
-- **Results**: 0.9834 ROC-AUC, 85.71% Recall, 1,779% ROI
-- **Runtime**: ~10 minutes on Kaggle
+* A faithful, runnable port that verifies its claims: `benchmarks/reproduce_legacy.py`.
+* What the audit found (non-learning autoencoder, duplicate leakage, test-set threshold choices,
+  ROI driven by a $500-per-fraud assumption): `docs/PROJECT_AUDIT.md`.
+* The current, leakage-free pipeline: `src/fraudshield/training/pipeline.py`
+  (`fraudshield train`), results in `docs/ML_EVALUATION.md`.
 
-### 📈 02_business_impact.ipynb  
-- **Purpose**: Detailed ROI and business metrics analysis
-- **Contents**: Threshold optimization, Cost-benefit analysis
-- **Key Finding**: Optimal threshold of 0.5 yields 1,779% ROI
-
-## How to Use
-
-1. **On Kaggle** (Recommended): 
-   - Visit https://www.kaggle.com/armandjunior
-   - Click "Copy & Edit" to run with GPU
-
-2. **Locally**:
-```bash
-   pip install -r requirements.txt
-   jupyter notebook notebooks/01_fraud_detection_complete.ipynb
+An earlier version of this file described a `02_business_impact.ipynb`; that notebook was never
+committed. The cost analysis now lives in `benchmarks/policy_experiment.py` and
+`docs/DECISION_ENGINE.md`.

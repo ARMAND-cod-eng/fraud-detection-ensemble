@@ -1,0 +1,579 @@
+{
+  "description": "Faithful reproduction of notebooks/01_fraud_detection_complete.ipynb",
+  "claimed": {
+    "roc_auc": 0.9834,
+    "recall": 0.8571,
+    "precision": 0.4746,
+    "f1": 0.6109,
+    "latency_ms": 86.0
+  },
+  "environment": {
+    "python": "3.12.13",
+    "platform": "Windows-11-10.0.22000-SP0",
+    "torch": "2.14.1+cpu",
+    "xgboost": "3.4.1",
+    "sklearn": "1.9.1"
+  },
+  "ae_epochs": 50,
+  "runs": [
+    {
+      "seed": 42,
+      "n_test": 56962,
+      "n_test_fraud": 98,
+      "test_rows_with_exact_duplicate_in_train": 298,
+      "roc_auc": 0.9827956858038657,
+      "pr_auc": 0.8171754155908094,
+      "precision@0.5": 0.46368715083798884,
+      "recall@0.5": 0.8469387755102041,
+      "f1@0.5": 0.5992779783393501,
+      "xgb_best_iteration": 299,
+      "ae_loss_first_last": [
+        1418.215,
+        1418.059
+      ],
+      "ae_error_test_roc_auc": 0.9229017964811136,
+      "iso_score_test_roc_auc": 0.9557574894054415,
+      "business_impact_flat_500": [
+        {
+          "threshold": 0.3,
+          "tp": 86,
+          "fp": 201,
+          "fn": 12,
+          "tn": 56663,
+          "fraud_prevented": 43000.0,
+          "net_benefit": 33125.0,
+          "roi_pct": 1009.7
+        },
+        {
+          "threshold": 0.5,
+          "tp": 83,
+          "fp": 96,
+          "fn": 15,
+          "tn": 56768,
+          "fraud_prevented": 41500.0,
+          "net_benefit": 31730.0,
+          "roi_pct": 1728.2
+        },
+        {
+          "threshold": 0.7,
+          "tp": 82,
+          "fp": 52,
+          "fn": 16,
+          "tn": 56812,
+          "fraud_prevented": 41000.0,
+          "net_benefit": 31400.0,
+          "roi_pct": 2462.5
+        },
+        {
+          "threshold": 0.9,
+          "tp": 77,
+          "fp": 17,
+          "fn": 21,
+          "tn": 56847,
+          "fraud_prevented": 38500.0,
+          "net_benefit": 26975.0,
+          "roi_pct": 3656.1
+        }
+      ],
+      "business_impact_actual_amounts": [
+        {
+          "threshold": 0.3,
+          "tp": 86,
+          "fp": 201,
+          "fn": 12,
+          "tn": 56663,
+          "fraud_prevented": 8631.17,
+          "net_benefit": 2742.41,
+          "roi_pct": 122.7
+        },
+        {
+          "threshold": 0.5,
+          "tp": 83,
+          "fp": 96,
+          "fn": 15,
+          "tn": 56768,
+          "fraud_prevented": 8362.29,
+          "net_benefit": 3809.65,
+          "roi_pct": 268.4
+        },
+        {
+          "threshold": 0.7,
+          "tp": 82,
+          "fp": 52,
+          "fn": 16,
+          "tn": 56812,
+          "fraud_prevented": 8361.29,
+          "net_benefit": 4477.65,
+          "roi_pct": 422.6
+        },
+        {
+          "threshold": 0.9,
+          "tp": 77,
+          "fp": 17,
+          "fn": 21,
+          "tn": 56847,
+          "fraud_prevented": 6058.95,
+          "net_benefit": 447.97,
+          "roi_pct": 491.1
+        }
+      ],
+      "train_seconds": 508.9,
+      "legacy_pipeline_latency_ms": {
+        "mean": 98.25,
+        "p50": 98.63,
+        "p95": 101.55,
+        "n": 195
+      },
+      "train_serve_skew": {
+        "description": "|P(single-row legacy pipeline) - P(batch path)| on the same 200 test rows",
+        "mean_abs_diff": 0.0005856420611962676,
+        "max_abs_diff": 0.031990572810173035,
+        "rows_with_diff_gt_0.01": 3
+      }
+    },
+    {
+      "seed": 0,
+      "n_test": 56962,
+      "n_test_fraud": 98,
+      "test_rows_with_exact_duplicate_in_train": 276,
+      "roc_auc": 0.9781160635328977,
+      "pr_auc": 0.7752596631607684,
+      "precision@0.5": 0.4691358024691358,
+      "recall@0.5": 0.7755102040816326,
+      "f1@0.5": 0.5846153846153846,
+      "xgb_best_iteration": 299,
+      "ae_loss_first_last": [
+        915.383,
+        915.204
+      ],
+      "ae_error_test_roc_auc": 0.911392595867835,
+      "iso_score_test_roc_auc": 0.9406489382472178,
+      "business_impact_flat_500": [
+        {
+          "threshold": 0.3,
+          "tp": 79,
+          "fp": 236,
+          "fn": 19,
+          "tn": 56628,
+          "fraud_prevented": 39500.0,
+          "net_benefit": 25670.0,
+          "roi_pct": 812.2
+        },
+        {
+          "threshold": 0.5,
+          "tp": 76,
+          "fp": 86,
+          "fn": 22,
+          "tn": 56778,
+          "fraud_prevented": 38000.0,
+          "net_benefit": 24950.0,
+          "roi_pct": 1753.7
+        },
+        {
+          "threshold": 0.7,
+          "tp": 76,
+          "fp": 48,
+          "fn": 22,
+          "tn": 56816,
+          "fraud_prevented": 38000.0,
+          "net_benefit": 25520.0,
+          "roi_pct": 2467.6
+        },
+        {
+          "threshold": 0.9,
+          "tp": 75,
+          "fp": 13,
+          "fn": 23,
+          "tn": 56851,
+          "fraud_prevented": 37500.0,
+          "net_benefit": 25055.0,
+          "roi_pct": 3868.3
+        }
+      ],
+      "business_impact_actual_amounts": [
+        {
+          "threshold": 0.3,
+          "tp": 79,
+          "fp": 236,
+          "fn": 19,
+          "tn": 56628,
+          "fraud_prevented": 6774.18,
+          "net_benefit": -750.84,
+          "roi_pct": 56.4
+        },
+        {
+          "threshold": 0.5,
+          "tp": 76,
+          "fp": 86,
+          "fn": 22,
+          "tn": 56778,
+          "fraud_prevented": 6765.44,
+          "net_benefit": 1511.68,
+          "roi_pct": 230.0
+        },
+        {
+          "threshold": 0.7,
+          "tp": 76,
+          "fp": 48,
+          "fn": 22,
+          "tn": 56816,
+          "fraud_prevented": 6765.44,
+          "net_benefit": 2081.68,
+          "roi_pct": 357.1
+        },
+        {
+          "threshold": 0.9,
+          "tp": 75,
+          "fp": 13,
+          "fn": 23,
+          "tn": 56851,
+          "fraud_prevented": 6763.22,
+          "net_benefit": 2612.24,
+          "roi_pct": 615.7
+        }
+      ],
+      "train_seconds": 413.3
+    },
+    {
+      "seed": 1,
+      "n_test": 56962,
+      "n_test_fraud": 98,
+      "test_rows_with_exact_duplicate_in_train": 269,
+      "roc_auc": 0.9895907205735418,
+      "pr_auc": 0.8674266395232887,
+      "precision@0.5": 0.4472361809045226,
+      "recall@0.5": 0.9081632653061225,
+      "f1@0.5": 0.5993265993265994,
+      "xgb_best_iteration": 299,
+      "ae_loss_first_last": [
+        2395.488,
+        2395.277
+      ],
+      "ae_error_test_roc_auc": 0.9315166943254509,
+      "iso_score_test_roc_auc": 0.9615340719855753,
+      "business_impact_flat_500": [
+        {
+          "threshold": 0.3,
+          "tp": 90,
+          "fp": 214,
+          "fn": 8,
+          "tn": 56650,
+          "fraud_prevented": 45000.0,
+          "net_benefit": 36890.0,
+          "roi_pct": 994.9
+        },
+        {
+          "threshold": 0.5,
+          "tp": 89,
+          "fp": 110,
+          "fn": 9,
+          "tn": 56754,
+          "fraud_prevented": 44500.0,
+          "net_benefit": 37460.0,
+          "roi_pct": 1652.0
+        },
+        {
+          "threshold": 0.7,
+          "tp": 89,
+          "fp": 60,
+          "fn": 9,
+          "tn": 56804,
+          "fraud_prevented": 44500.0,
+          "net_benefit": 38210.0,
+          "roi_pct": 2386.0
+        },
+        {
+          "threshold": 0.9,
+          "tp": 86,
+          "fp": 14,
+          "fn": 12,
+          "tn": 56850,
+          "fraud_prevented": 43000.0,
+          "net_benefit": 35930.0,
+          "roi_pct": 3918.7
+        }
+      ],
+      "business_impact_actual_amounts": [
+        {
+          "threshold": 0.3,
+          "tp": 90,
+          "fp": 214,
+          "fn": 8,
+          "tn": 56650,
+          "fraud_prevented": 9001.53,
+          "net_benefit": 2364.63,
+          "roi_pct": 119.0
+        },
+        {
+          "threshold": 0.5,
+          "tp": 89,
+          "fp": 110,
+          "fn": 9,
+          "tn": 56754,
+          "fraud_prevented": 8367.23,
+          "net_benefit": 2666.03,
+          "roi_pct": 229.4
+        },
+        {
+          "threshold": 0.7,
+          "tp": 89,
+          "fp": 60,
+          "fn": 9,
+          "tn": 56804,
+          "fraud_prevented": 8367.23,
+          "net_benefit": 3416.03,
+          "roi_pct": 367.4
+        },
+        {
+          "threshold": 0.9,
+          "tp": 86,
+          "fp": 14,
+          "fn": 12,
+          "tn": 56850,
+          "fraud_prevented": 8362.11,
+          "net_benefit": 4125.79,
+          "roi_pct": 681.5
+        }
+      ],
+      "train_seconds": 432.5
+    },
+    {
+      "seed": 2,
+      "n_test": 56962,
+      "n_test_fraud": 98,
+      "test_rows_with_exact_duplicate_in_train": 277,
+      "roc_auc": 0.9871621728319916,
+      "pr_auc": 0.8418609973041917,
+      "precision@0.5": 0.49710982658959535,
+      "recall@0.5": 0.8775510204081632,
+      "f1@0.5": 0.6346863468634686,
+      "xgb_best_iteration": 299,
+      "ae_loss_first_last": [
+        2968.588,
+        2968.215
+      ],
+      "ae_error_test_roc_auc": 0.9300057494860634,
+      "iso_score_test_roc_auc": 0.961473059961182,
+      "business_impact_flat_500": [
+        {
+          "threshold": 0.3,
+          "tp": 86,
+          "fp": 237,
+          "fn": 12,
+          "tn": 56627,
+          "fraud_prevented": 43000.0,
+          "net_benefit": 32585.0,
+          "roi_pct": 874.0
+        },
+        {
+          "threshold": 0.5,
+          "tp": 86,
+          "fp": 87,
+          "fn": 12,
+          "tn": 56777,
+          "fraud_prevented": 43000.0,
+          "net_benefit": 34835.0,
+          "roi_pct": 1886.1
+        },
+        {
+          "threshold": 0.7,
+          "tp": 86,
+          "fp": 38,
+          "fn": 12,
+          "tn": 56826,
+          "fraud_prevented": 43000.0,
+          "net_benefit": 35570.0,
+          "roi_pct": 2907.0
+        },
+        {
+          "threshold": 0.9,
+          "tp": 84,
+          "fp": 18,
+          "fn": 14,
+          "tn": 56846,
+          "fraud_prevented": 42000.0,
+          "net_benefit": 33890.0,
+          "roi_pct": 3683.8
+        }
+      ],
+      "business_impact_actual_amounts": [
+        {
+          "threshold": 0.3,
+          "tp": 86,
+          "fp": 237,
+          "fn": 12,
+          "tn": 56627,
+          "fraud_prevented": 9040.46,
+          "net_benefit": 1271.45,
+          "roi_pct": 104.8
+        },
+        {
+          "threshold": 0.5,
+          "tp": 86,
+          "fp": 87,
+          "fn": 12,
+          "tn": 56777,
+          "fraud_prevented": 9040.46,
+          "net_benefit": 3521.45,
+          "roi_pct": 317.6
+        },
+        {
+          "threshold": 0.7,
+          "tp": 86,
+          "fp": 38,
+          "fn": 12,
+          "tn": 56826,
+          "fraud_prevented": 9040.46,
+          "net_benefit": 4256.45,
+          "roi_pct": 532.2
+        },
+        {
+          "threshold": 0.9,
+          "tp": 84,
+          "fp": 18,
+          "fn": 14,
+          "tn": 56846,
+          "fraud_prevented": 9036.34,
+          "net_benefit": 4568.21,
+          "roi_pct": 714.1
+        }
+      ],
+      "train_seconds": 457.8
+    },
+    {
+      "seed": 3,
+      "n_test": 56962,
+      "n_test_fraud": 98,
+      "test_rows_with_exact_duplicate_in_train": 260,
+      "roc_auc": 0.9770350740183524,
+      "pr_auc": 0.7985871082117846,
+      "precision@0.5": 0.53125,
+      "recall@0.5": 0.8673469387755102,
+      "f1@0.5": 0.6589147286821705,
+      "xgb_best_iteration": 299,
+      "ae_loss_first_last": [
+        1605.714,
+        1605.668
+      ],
+      "ae_error_test_roc_auc": 0.9225444275205862,
+      "iso_score_test_roc_auc": 0.9623697572726333,
+      "business_impact_flat_500": [
+        {
+          "threshold": 0.3,
+          "tp": 86,
+          "fp": 148,
+          "fn": 12,
+          "tn": 56716,
+          "fraud_prevented": 43000.0,
+          "net_benefit": 33920.0,
+          "roi_pct": 1296.1
+        },
+        {
+          "threshold": 0.5,
+          "tp": 85,
+          "fp": 75,
+          "fn": 13,
+          "tn": 56789,
+          "fraud_prevented": 42500.0,
+          "net_benefit": 34025.0,
+          "roi_pct": 2051.9
+        },
+        {
+          "threshold": 0.7,
+          "tp": 84,
+          "fp": 47,
+          "fn": 14,
+          "tn": 56817,
+          "fraud_prevented": 42000.0,
+          "net_benefit": 33455.0,
+          "roi_pct": 2618.4
+        },
+        {
+          "threshold": 0.9,
+          "tp": 81,
+          "fp": 12,
+          "fn": 17,
+          "tn": 56852,
+          "fraud_prevented": 40500.0,
+          "net_benefit": 31010.0,
+          "roi_pct": 3990.9
+        }
+      ],
+      "business_impact_actual_amounts": [
+        {
+          "threshold": 0.3,
+          "tp": 86,
+          "fp": 148,
+          "fn": 12,
+          "tn": 56716,
+          "fraud_prevented": 12103.0,
+          "net_benefit": 6842.22,
+          "roi_pct": 293.0
+        },
+        {
+          "threshold": 0.5,
+          "tp": 85,
+          "fp": 75,
+          "fn": 13,
+          "tn": 56789,
+          "fraud_prevented": 12095.0,
+          "net_benefit": 7931.22,
+          "roi_pct": 512.4
+        },
+        {
+          "threshold": 0.7,
+          "tp": 84,
+          "fp": 47,
+          "fn": 14,
+          "tn": 56817,
+          "fraud_prevented": 12088.01,
+          "net_benefit": 8347.24,
+          "roi_pct": 682.4
+        },
+        {
+          "threshold": 0.9,
+          "tp": 81,
+          "fp": 12,
+          "fn": 17,
+          "tn": 56852,
+          "fraud_prevented": 11910.78,
+          "net_benefit": 8547.78,
+          "roi_pct": 1103.1
+        }
+      ],
+      "train_seconds": 423.5
+    }
+  ],
+  "across_seeds": {
+    "roc_auc": {
+      "mean": 0.9829399433521298,
+      "std": 0.005482202295361713,
+      "min": 0.9770350740183524,
+      "max": 0.9895907205735418
+    },
+    "pr_auc": {
+      "mean": 0.8200619647581686,
+      "std": 0.03603941624720057,
+      "min": 0.7752596631607684,
+      "max": 0.8674266395232887
+    },
+    "precision@0.5": {
+      "mean": 0.48168379216024854,
+      "std": 0.03302552256673914,
+      "min": 0.4472361809045226,
+      "max": 0.53125
+    },
+    "recall@0.5": {
+      "mean": 0.8551020408163265,
+      "std": 0.04967616916178811,
+      "min": 0.7755102040816326,
+      "max": 0.9081632653061225
+    },
+    "f1@0.5": {
+      "mean": 0.6153642075653946,
+      "std": 0.030542817151262815,
+      "min": 0.5846153846153846,
+      "max": 0.6589147286821705
+    }
+  }
+}

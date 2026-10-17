@@ -1,0 +1,72 @@
+{
+  "label": "windows-host",
+  "endpoint": "POST /api/v1/transactions/score",
+  "model_version": "xgboost-20261016-204043",
+  "server": "uvicorn, 1 worker, same machine as the client (loopback)",
+  "client": {
+    "python": "3.12.13",
+    "platform": "Windows-11-10.0.22000-SP0",
+    "cpus": 8,
+    "method": "one process + one keep-alive connection per concurrent client"
+  },
+  "payloads": "3000 real held-out transactions (seed 0), unique IDs",
+  "levels": [
+    {
+      "concurrency": 1,
+      "requests": 3000,
+      "ok": 3000,
+      "errors": {},
+      "throughput_rps": 275.03303971876676,
+      "latency_ms": {
+        "p50": 3.133449994493276,
+        "p95": 4.566099954536181,
+        "p99": 9.304702067747705,
+        "mean": 3.5578438993543386,
+        "max": 119.42120001185685
+      }
+    },
+    {
+      "concurrency": 2,
+      "requests": 3000,
+      "ok": 3000,
+      "errors": {},
+      "throughput_rps": 279.04761755107256,
+      "latency_ms": {
+        "p50": 6.270050012972206,
+        "p95": 9.22103501507081,
+        "p99": 28.092534038005343,
+        "mean": 7.056791764761631,
+        "max": 100.26749991811812
+      }
+    },
+    {
+      "concurrency": 4,
+      "requests": 3000,
+      "ok": 3000,
+      "errors": {},
+      "throughput_rps": 253.4281457594874,
+      "latency_ms": {
+        "p50": 14.33074998203665,
+        "p95": 21.49595496593972,
+        "p99": 48.24107303749769,
+        "mean": 15.621302264393307,
+        "max": 104.15439994540066
+      }
+    },
+    {
+      "concurrency": 8,
+      "requests": 3000,
+      "ok": 3000,
+      "errors": {},
+      "throughput_rps": 248.16217093518034,
+      "latency_ms": {
+        "p50": 29.441750026308,
+        "p95": 53.05822001537306,
+        "p99": 79.40453701303284,
+        "mean": 32.030051032081246,
+        "max": 150.62040009070188
+      }
+    }
+  ],
+  "measured_at": "2026-10-16T15:56:57"
+}
