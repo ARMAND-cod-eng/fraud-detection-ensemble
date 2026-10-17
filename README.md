@@ -199,7 +199,7 @@ benchmarks/        legacy reproduction, policy experiment, load test, IEEE-CIS b
 configs/           training.yaml, training_fast.yaml, decision_policy.yaml
 deploy/            Prometheus, Grafana provisioning, AWS ECS task-definition template
 docs/              audit, architecture, evaluation, model card, decision engine, deployment, trade-offs, demo
-notebooks/         original exploratory notebook (kept unchanged for reference)
+notebooks/         original exploratory notebook (kept for reference, with an audit note)
 ```
 
 ## Operational considerations

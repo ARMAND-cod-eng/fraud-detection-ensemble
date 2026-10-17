@@ -1,10 +1,11 @@
 # Notebooks
 
-### `01_fraud_detection_complete.ipynb` (original, kept unchanged)
+### `01_fraud_detection_complete.ipynb` (original, with an audit note added)
 
 The original Kaggle notebook: EDA, feature engineering, autoencoder, Isolation Forest, XGBoost
 stacking, evaluation and a business-impact table. It is preserved as the historical starting
-point of the project. It does not run unmodified on current libraries (Kaggle paths; XGBoost ≥ 2
+point of the project; its code is unchanged, and an October 2026 note at the top summarises the
+audit and links here. It is synced from Kaggle. It does not run unmodified on current libraries (Kaggle paths; XGBoost ≥ 2
 API changes).
 
 * A faithful, runnable port that verifies its claims: `benchmarks/reproduce_legacy.py`.

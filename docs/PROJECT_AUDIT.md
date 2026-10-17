@@ -16,7 +16,7 @@ measured each claim. All numbers below come from `benchmarks/results/legacy_repr
 | `README.md` project tree | Lists `src/README.md` "coming soon" | **No `src/` directory** |
 | `data/README.md` | Dataset description and Kaggle download command | Accurate |
 | `requirements.txt` | Pins torch 2.0.1, numpy 1.24.3, xgboost 1.7.6, … | Not installable on Python ≥ 3.12; notebook code also fails on XGBoost ≥ 2.0 |
-| `medical-insurance-cost-prediction.ipynb` (root) | Unrelated regression project | Should live in its own repository (left in place; not deleted) |
+| `medical-insurance-cost-prediction.ipynb` (root) | Unrelated regression project | Should live in its own repository (removed from this repo on 2026-10-17; still in git history) |
 
 There was no API, no tests, no Docker, no CI, no saved artifacts, no configuration and no
 deployment. "Production pipeline" meant a Python class inside the notebook.
@@ -88,7 +88,7 @@ are not a reliable estimate of out-of-time performance (see `docs/ML_EVALUATION.
   model families — kept, fixed, and benchmarked honestly.
 * The idea of **cost-aware thresholding** — kept, but moved to validation data with real amounts
   and explicit assumptions, and separated from the model as a policy layer.
-* The notebook itself — kept unchanged as the historical artefact; superseded by the package.
+* The notebook itself — kept as the historical artefact (code unchanged; an audit note was added at the top in October 2026); superseded by the package.
 
 ## 6. Highest-impact improvements (ranked)
 
