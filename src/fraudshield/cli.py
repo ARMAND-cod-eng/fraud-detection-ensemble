@@ -136,7 +136,11 @@ def cmd_models(args: argparse.Namespace) -> int:
             return 1
         _print(report)
     elif args.action == "rollback":
-        print(f"production is now {reg.rollback(args.reason)}")
+        try:
+            print(f"production is now {reg.rollback(args.reason)}")
+        except RuntimeError as exc:
+            print(f"rollback refused: {exc}", file=sys.stderr)
+            return 1
     return 0
 
 
