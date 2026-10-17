@@ -1,0 +1,82 @@
+# Reproducible training + evaluation configuration for the ULB credit-card dataset.
+# Every choice that could leak information is decided here, before the test split is scored.
+experiment_name: creditcard-chronological
+seed: 42
+
+data:
+  path: data/raw/creditcard.csv
+  drop_duplicates: true # 1,081 exact duplicates in the canonical file
+
+split:
+  strategy: chronological # out-of-time; "stratified_random" only for legacy comparison
+  train_frac: 0.6
+  val_frac: 0.2
+
+features:
+  engineered: true
+
+xgboost:
+  base_params:
+    learning_rate: 0.05
+    subsample: 0.8
+    colsample_bytree: 0.7
+    tree_method: hist
+    n_estimators: 2000
+    early_stopping_rounds: 100
+    eval_metric: aucpr
+  # Small grid, scored on VALIDATION PR-AUC. Early stopping uses a separate slice of train.
+  grid:
+    max_depth: [3, 5]
+    min_child_weight: [1, 5]
+    scale_pos_weight: [1, 10]
+  early_stopping_frac: 0.15
+
+logreg:
+  grid:
+    C: [0.01, 0.1, 1.0]
+    class_weight: [null, balanced]
+
+isolation_forest:
+  n_estimators: 200
+  max_samples: 256
+
+autoencoder:
+  hidden: [32, 16]
+  latent: 8
+  epochs: 40
+  batch_size: 512
+  lr: 0.001
+  weight_decay: 0.00001
+  patience: 4
+
+stacking:
+  oof_folds: 4 # detector scores for training rows are out-of-fold (no in-sample leakage)
+
+# Pre-registered model selection rule (applied to validation metrics only).
+selection:
+  primary_metric: pr_auc
+  eligible: [logreg, xgboost, stacked]
+  simpler_model: xgboost
+  # A more complex model must beat the simpler one by this much on validation PR-AUC AND the
+  # paired-bootstrap 90% CI of the gain must exclude zero; otherwise the simpler model wins.
+  min_improvement: 0.01
+
+evaluation:
+  bootstrap: 1000
+  latency_repeats: 500
+
+# Illustrative cost assumptions for threshold selection. NOT real financial data.
+cost_assumptions:
+  review_cost: 5.0 # analyst cost per manual review (EUR)
+  loss_rate: 1.0 # fraction of a missed fraud's amount that is lost
+
+# Promotion gate (pass/fail acceptance on the held-out test split; never used for tuning).
+gate:
+  min_test_pr_auc: 0.60
+  min_test_roc_auc: 0.95
+  max_pr_auc_regression: 0.02
+  max_p95_latency_ms: 50
+
+tracking:
+  mlflow: true # used only if mlflow is installed (pip install -e .[tracking])
+  uri: mlruns # local file store; set MLFLOW_TRACKING_URI to use a tracking server
