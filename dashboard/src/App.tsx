@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "./lib/api";
 import { usePoll, useHashRoute } from "./lib/hooks";
+import { ConfigContext, DEFAULT_CONFIG } from "./lib/config";
 import { Icon, Shield } from "./components/ui";
 import Overview from "./pages/Overview";
 import Live from "./pages/Live";
@@ -37,8 +38,10 @@ export default function App() {
   const ready = usePoll(() => fetch("/ready").then((r) => r.json()), 10000);
   const open = usePoll(() => api.transactions({ review_status: "open", alerts_only: true, limit: 1 }), 5000);
   const ok = ready.data?.status === "ready";
+  const cfg = usePoll(api.config, 0).data ?? DEFAULT_CONFIG;
 
   return (
+    <ConfigContext.Provider value={cfg}>
     <div className="app">
       <aside className="sidebar">
         <div className="brand"><Shield /><div className="brand-name">FraudShield <span>AI</span></div></div>
@@ -53,11 +56,19 @@ export default function App() {
         <div className="sidebar-foot">
           <span className={`badge ${ok ? "ok" : "alert"}`}><span className="dot" />{ok ? "Service ready" : "Service not ready"}</span>
           {ready.data?.model_version && <span className="mono muted" style={{ fontSize: 11, wordBreak: "break-all" }}>{ready.data.model_version}</span>}
-          <span className="small muted">Local demo · public ULB dataset</span>
+          <span className="small muted">{cfg.demo_mode ? "Public demo" : "Local"} · public ULB dataset</span>
+          {cfg.data_attribution && <span className="muted" style={{ fontSize: 11 }}>{cfg.data_attribution}</span>}
           <button className="btn sm" onClick={toggle} aria-label="Toggle colour theme">{theme === "dark" ? <Icon.sun /> : <Icon.moon />}{theme === "dark" ? "Light" : "Dark"} mode</button>
         </div>
       </aside>
       <main className="main">
+        {cfg.demo_mode && (
+          <div className="callout" style={{ marginBottom: 16 }} role="note">
+            <Icon.info /><span><b>Public demo.</b> Replays are capped at {cfg.max_replay_tps} tx/s and {cfg.max_replay_count.toLocaleString()} transactions;
+              policy changes and data resets are disabled, and other visitors may share this instance.
+              {cfg.demo_note ? ` ${cfg.demo_note}` : ""}</span>
+          </div>
+        )}
         {page === "overview" && <Overview />}
         {page === "live" && <Live />}
         {page === "cases" && <Cases id={params[0] ? decodeURIComponent(params[0]) : undefined} />}
@@ -67,5 +78,6 @@ export default function App() {
         {!NAV.some((n) => n.key === page) && <div className="empty">Page not found. <a href="#/overview">Go to overview</a></div>}
       </main>
     </div>
+    </ConfigContext.Provider>
   );
 }

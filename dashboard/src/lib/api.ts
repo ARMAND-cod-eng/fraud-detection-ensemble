@@ -197,6 +197,11 @@ export interface ModelInfo {
 export interface Versions { production: string | null; versions: string[]; serving: string | null;
   history: { action: string; version: string; previous: string | null; reason: string; at: string }[] }
 
+export interface PublicConfig {
+  version: string; environment: string; demo_mode: boolean; max_replay_tps: number; max_replay_count: number;
+  policy_changes_allowed: boolean; demo_note: string; data_attribution: string;
+}
+
 export class ApiError extends Error {
   constructor(public status: number, public code: string, message: string) { super(message); }
 }
@@ -218,6 +223,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 const post = <T>(path: string, body?: unknown) => request<T>(path, { method: "POST", body: body === undefined ? undefined : JSON.stringify(body) });
 
 export const api = {
+  config: () => request<PublicConfig>("/api/v1/config"),
   overview: () => request<Overview>("/api/v1/overview"),
   monitoring: () => request<Monitoring>("/api/v1/monitoring"),
   transactions: (q: Record<string, string | number | boolean | undefined>) => {
