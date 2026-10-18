@@ -106,7 +106,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         redoc_url=None,
         openapi_url="/openapi.json" if settings.enable_docs else None,
     )
-    app.add_middleware(RequestContextMiddleware)
+    app.add_middleware(RequestContextMiddleware, frame_ancestors=settings.frame_ancestors)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,

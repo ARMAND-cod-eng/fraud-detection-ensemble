@@ -72,6 +72,18 @@ CSP = (
 )
 
 
+def security_headers(frame_ancestors: str = "") -> tuple[dict[str, str], str]:
+    """Headers + CSP. Framing is denied unless specific origins are allowed (e.g. a Space page).
+
+    ``X-Frame-Options`` cannot express an allow-list, so it is dropped when origins are allowed;
+    every current browser enforces CSP ``frame-ancestors`` instead.
+    """
+    if not frame_ancestors:
+        return SECURITY_HEADERS, CSP
+    headers = {k: v for k, v in SECURITY_HEADERS.items() if k != "X-Frame-Options"}
+    return headers, CSP.replace("frame-ancestors 'none'", f"frame-ancestors 'self' {frame_ancestors}")
+
+
 class RequestContextMiddleware:
     """Pure ASGI middleware (cheaper than ``BaseHTTPMiddleware`` and streaming-safe).
 
@@ -80,8 +92,9 @@ class RequestContextMiddleware:
     the standard error envelope without leaking internals.
     """
 
-    def __init__(self, app: ASGIApp) -> None:
+    def __init__(self, app: ASGIApp, frame_ancestors: str = "") -> None:
         self.app = app
+        self.headers, self.csp = security_headers(frame_ancestors)
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
@@ -103,10 +116,10 @@ class RequestContextMiddleware:
                 status = message["status"]
                 headers = MutableHeaders(scope=message)
                 headers["X-Request-ID"] = rid
-                for k, v in SECURITY_HEADERS.items():
+                for k, v in self.headers.items():
                     headers.setdefault(k, v)
                 if not path.startswith(("/docs", "/redoc", "/openapi.json")):
-                    headers.setdefault("Content-Security-Policy", CSP)
+                    headers.setdefault("Content-Security-Policy", self.csp)
             await send(message)
 
         try:

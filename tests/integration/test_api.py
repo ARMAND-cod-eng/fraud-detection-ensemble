@@ -316,3 +316,21 @@ def test_public_demo_mode_limits(client_factory) -> None:
 def test_config_endpoint_outside_demo(client) -> None:
     cfg = client.get("/api/v1/config").json()
     assert cfg["demo_mode"] is False and cfg["policy_changes_allowed"] is True
+
+
+def test_framing_denied_by_default_and_allowed_for_configured_origins(client_factory) -> None:
+    import pytest
+    from pydantic import ValidationError
+
+    from fraudshield.config import Settings
+
+    strict = client_factory().get("/health")
+    assert strict.headers["X-Frame-Options"] == "DENY"
+    assert "frame-ancestors 'none'" in strict.headers["Content-Security-Policy"]
+    # A Hugging Face Space page embeds the app in an iframe served from huggingface.co.
+    space = client_factory(frame_ancestors="https://huggingface.co").get("/health")
+    assert "X-Frame-Options" not in space.headers
+    assert "frame-ancestors 'self' https://huggingface.co;" in space.headers["Content-Security-Policy"]
+    for bad in ("http://example.com", "https://a.com; script-src *", "'unsafe-inline'"):
+        with pytest.raises(ValidationError):
+            Settings(frame_ancestors=bad)

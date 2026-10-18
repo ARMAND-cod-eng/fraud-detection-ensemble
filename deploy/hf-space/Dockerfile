@@ -48,7 +48,8 @@ ENV FRAUDSHIELD_ENVIRONMENT=hf-space \
     FRAUDSHIELD_DASHBOARD_DIR=/app/dashboard/dist \
     FRAUDSHIELD_DB_PATH=/tmp/fraudshield.db \
     FRAUDSHIELD_MAX_STORED_PREDICTIONS=20000 \
-    FRAUDSHIELD_LOG_LEVEL=WARNING
+    FRAUDSHIELD_LOG_LEVEL=WARNING \
+    FRAUDSHIELD_FRAME_ANCESTORS="https://huggingface.co"
 USER user
 EXPOSE 8000
 CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--no-access-log"]
