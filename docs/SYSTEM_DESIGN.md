@@ -47,14 +47,19 @@ Code: `api/` (contract, auth, limits), `src/fraudshield/service.py` (orchestrati
 | Family | Examples | Status |
 |---|---|---|
 | Transaction | amount, time of day, merchant/product, card network | Implemented (`features/engineering.py`) |
-| Entity / velocity | transactions per card in 1 h / 24 h / 7 d, distinct cards per device, time since previous | Offline + windowed implemented and benchmarked on IEEE-CIS (`data/ieee_cis.py`); online store planned (v2) |
+| Entity / velocity | transactions per card in 1 h / 24 h / 7 d, distinct cards per device, time since previous | **Implemented (v2):** declared once in `features/velocity.py`, offline engine for training + `OnlineFeatureStore` for serving, parity-tested; `ieee` profile |
 | Network / graph | shared devices/emails across accounts, connected components | Data-dependent: ULB has no identifiers; IEEE-CIS `DeviceInfo` is a device *model* |
 | Consortium / vendor | issuer signals, device fingerprinting | Vendor columns (IEEE-CIS C/D/V) used only as a reference ceiling |
 
 - **One feature definition for training and serving**, or train/serve skew follows; that skew
   was the original notebook's bug. Implemented for row-local features, with a test proving the
-  single-row and batch paths are identical. For stateful velocity features this needs an online
-  store with parity tests (planned, v2).
+  single-row and batch paths are identical. Stateful velocity features use one `VelocitySpec`
+  list for both engines; parity is checked with property tests and on the real IEEE-CIS test
+  window (0 mismatches in 1.77M values, and 0 in 75k through the running API).
+- **Point-in-time reads:** a transaction's features come from events strictly before it, then the
+  event is recorded (one atomic read-then-write). Retries with a known ID never reach the store.
+- **Measure what the features buy:** on IEEE-CIS authorisation-time fields, 15 velocity features
+  add +0.009 PR-AUC [+0.001, +0.018], about 3% of the gap to the vendor's 431-column model.
 - **Prefer windows to cumulative counts.** Counts since the start of the data drift by
   construction; on IEEE-CIS they cost −0.010 PR-AUC, and trailing windows removed most of that.
 
@@ -85,7 +90,7 @@ Code: `api/` (contract, auth, limits), `src/fraudshield/service.py` (orchestrati
 | Stage | What | Here |
 |---|---|---|
 | Offline | Out-of-time PR-AUC, recall@FPR, precision@budget, bootstrap CIs, cost curves, calibration | `training/evaluate.py`, `benchmarks/results/` |
-| Backtest | Rolling monthly windows with a label-maturity gap, static vs retrained | Planned (v2, IEEE-CIS covers 182 days) |
+| Backtest | Rolling monthly windows with a label-maturity gap, static vs retrained | **Implemented (v2):** static model 0.253 → 0.198 PR-AUC over three months; monthly retraining holds 0.24–0.25 (`training/ieee_v2.py`) |
 | Pre-deployment gate | Integrity, smoke test, minimum metrics, latency, no regression vs production | `training/promotion.py` |
 | Shadow | New model scores live traffic without acting; compare score distributions and alerts | **(at scale)**; registry and decision log support it |
 | Online | Holdout / A-B on approval rate, fraud loss, review volume | **(at scale)** |
@@ -119,7 +124,7 @@ minimisation and retention, and fairness monitoring where customer attributes ex
 | State (rate limits, replay, SSE fan-out) | In process | Redis |
 | Decision log | SQLite (WAL) | Postgres / event log |
 | Event transport | In-process replay with backpressure | Kafka (or Kinesis) with consumer groups |
-| Entity features | Offline windows (IEEE-CIS) | Online store (Redis) fed by stream processing, parity-tested |
+| Entity features | In-process online store, warmed from the last 7 days, parity-tested | Same specs in Redis (sorted set per entity key + window, atomic Lua read-then-write), fed by stream processing |
 | Serving | 1 uvicorn worker, ~250–290 req/s | N stateless replicas behind a load balancer, autoscaled on p95 latency |
 | Model delivery | File registry | S3 + signed artifacts, staged rollout with shadow traffic |
 
@@ -129,5 +134,7 @@ minimisation and retention, and fairness monitoring where customer attributes ex
 - **Out-of-time evaluation** costs optimism up front but avoids surprises in production.
 - **Calibrated probabilities plus a policy layer** let business owners change thresholds safely.
 - **Window features over cumulative counts:** stationarity matters more than richness.
+- **Gates you actually obey:** the v2 model failed limits set before the run, and the limits
+  stayed. A logged override for a demo is different from lowering the bar.
 - **One worker + SQLite** keep the demo reproducible. The interfaces are narrow so the scale-out
   path above is an implementation change, not a redesign.
