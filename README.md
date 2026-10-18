@@ -1,6 +1,7 @@
 # FraudShield AI — real-time fraud intelligence platform
 
 [![Live demo](https://img.shields.io/badge/live%20demo-Hugging%20Face-ffcc4d)](https://huggingface.co/spaces/notuearmand250/fraudshield)
+[![Write-up on Medium](https://img.shields.io/badge/write--up-Medium-12100e)](https://medium.com/@notuearmand250/i-audited-my-own-fraud-model-the-headline-survived-the-story-didnt-278079fbdb7b)
 [![CI](https://github.com/ARMAND-cod-eng/fraud-detection-ensemble/actions/workflows/ci.yml/badge.svg)](https://github.com/ARMAND-cod-eng/fraud-detection-ensemble/actions/workflows/ci.yml)
 ![Coverage 93%](https://img.shields.io/badge/coverage-93%25-brightgreen)
 ![Python 3.12](https://img.shields.io/badge/python-3.12-blue)
@@ -26,6 +27,8 @@ pre-registered quality gate**. [Why, and what it means](#fraudshield-v2-real-tim
 **[▶ Try the live demo](https://huggingface.co/spaces/notuearmand250/fraudshield)**: start a replay, open an alert, run a policy what-if.
 It is a public demo: replays are capped, policy changes are off, the model is trained on the ULB
 data when the Space is built, and the first visit after a quiet period takes about a minute to wake up.
+
+**[Read the write-up](https://medium.com/@notuearmand250/i-audited-my-own-fraud-model-the-headline-survived-the-story-didnt-278079fbdb7b)**: *I audited my own fraud model. The headline survived. The story didn't.* (9-minute read)
 
 ![FraudShield walkthrough: replay, live monitor, investigation, performance, policy, drift](docs/images/demo.gif)
 
@@ -332,7 +335,7 @@ hand-written charts over chart libraries (88 kB gzipped UI). Details:
 
 ## Documentation
 
-[Audit](docs/PROJECT_AUDIT.md) · [System design](docs/SYSTEM_DESIGN.md) · [Architecture](docs/ARCHITECTURE.md) ·
+[Write-up (Medium)](https://medium.com/@notuearmand250/i-audited-my-own-fraud-model-the-headline-survived-the-story-didnt-278079fbdb7b) · [Audit](docs/PROJECT_AUDIT.md) · [System design](docs/SYSTEM_DESIGN.md) · [Architecture](docs/ARCHITECTURE.md) ·
 [ML evaluation](docs/ML_EVALUATION.md) · [Model card](docs/MODEL_CARD.md) · [Model card v2](docs/MODEL_CARD_IEEE_V2.md) ·
 [Decision engine](docs/DECISION_ENGINE.md) · [Deployment](docs/DEPLOYMENT.md) ·
 [Trade-offs](docs/ENGINEERING_TRADEOFFS.md) · [Demo script](docs/DEMO_SCRIPT.md) ·
