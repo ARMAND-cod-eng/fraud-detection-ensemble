@@ -29,6 +29,8 @@ from fraudshield.decision_engine.policy import DecisionEngine, load_policy
 from fraudshield.inference.scorer import FraudScorer
 from fraudshield.monitoring.live import LiveMonitor
 from fraudshield.monitoring.metrics import Metrics
+from fraudshield.profiles import get_profile
+from fraudshield.profiles.base import ServingProfile
 from fraudshield.service import FraudService
 from fraudshield.storage.store import PredictionStore
 from fraudshield.streaming.broadcaster import Broadcaster
@@ -46,8 +48,11 @@ def _error(
     return JSONResponse(body, status_code=status, headers=headers)
 
 
-def build_service(settings: Settings, metrics: Metrics) -> FraudService:
-    scorer = FraudScorer.from_registry(settings.artifacts_dir, settings.model_version)
+def build_service(
+    settings: Settings, metrics: Metrics, profile: ServingProfile | None = None
+) -> FraudService:
+    profile = profile or get_profile(settings)
+    scorer = FraudScorer.from_registry(settings.artifacts_dir, settings.model_version, profile)
     policy = load_policy(settings.policy_path, scorer.review_threshold)
     engine = DecisionEngine(policy)
     store = PredictionStore(settings.db_path)
@@ -72,12 +77,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.fs = state
         app.state.metrics = metrics
         try:
-            service = build_service(settings, metrics)
+            state.profile = get_profile(settings)
+            service = build_service(settings, metrics, state.profile)
+            online = state.profile.startup()  # e.g. warm the online feature store
             service.broadcaster.bind_loop(asyncio.get_running_loop())
             state.service = service
             app.state.monitor = service.monitor
-            state.replay = ReplayEngine(service, settings.replay_file)
-            logger.info("model loaded", extra={"model_version": service.scorer.version})
+            state.replay = ReplayEngine(service)
+            logger.info(
+                "model loaded",
+                extra={"model_version": service.scorer.version, "profile": settings.profile, **online},
+            )
         except Exception as exc:  # keep serving /health and /ready so the failure is observable
             state.startup_error = f"{type(exc).__name__}: {exc}"
             logger.error("startup failed: %s", state.startup_error)
@@ -159,6 +169,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                     metrics.score_psi.set(drift["score"]["psi"])
         return PlainTextResponse(generate_latest(metrics.registry), media_type=CONTENT_TYPE_LATEST)
 
+    app.include_router(transactions.build_scoring_router(settings.profile))
     app.include_router(transactions.router)
     app.include_router(platform.router)
 

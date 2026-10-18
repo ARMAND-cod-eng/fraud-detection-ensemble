@@ -1,0 +1,29 @@
+{
+  "path": "HTTP replay -> FraudService -> OnlineFeatureStore -> SQLite (stored features)",
+  "test_window_rows": "5000-9999",
+  "transactions": 5000,
+  "values_compared": 75000,
+  "mismatches": 0,
+  "mismatches_per_feature": {
+    "v_card_count_1h": 0,
+    "v_card_count_24h": 0,
+    "v_card_count_7d": 0,
+    "v_card_amount_24h": 0,
+    "v_card_amount_ratio_7d": 0,
+    "v_card_secs_since_prev": 0,
+    "v_card_distinct_email_7d": 0,
+    "v_card_distinct_device_7d": 0,
+    "v_card_distinct_addr_7d": 0,
+    "v_card_email_count_7d": 0,
+    "v_device_count_1h": 0,
+    "v_device_distinct_cards_24h": 0,
+    "v_addr_distinct_cards_24h": 0,
+    "v_email_count_1h": 0,
+    "v_email_distinct_cards_24h": 0
+  },
+  "replay_effective_tps": 339.4,
+  "tolerance": {
+    "rtol": 1e-09,
+    "atol": 1e-06
+  }
+}

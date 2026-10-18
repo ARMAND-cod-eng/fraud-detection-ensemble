@@ -1,22 +1,18 @@
-"""Scoring service: validation -> idempotency -> model -> policy -> persistence -> telemetry.
+"""Scoring service: validation -> idempotency -> online features -> model -> policy -> persistence.
 
 The HTTP API and the replay engine both call ``FraudService.score``, so replayed traffic
-exercises exactly the production code path.
+exercises exactly the production code path. Dataset-specific steps (field contract, online
+features, entity links, analyst text) come from the scorer's serving profile.
 """
 
 from __future__ import annotations
 
-import hashlib
-import json
 import time
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
-import numpy as np
-
-from fraudshield.data.schema import AMOUNT_COLUMN, RAW_FEATURE_COLUMNS, TIME_COLUMN
 from fraudshield.decision_engine.policy import DecisionEngine
 from fraudshield.inference.scorer import FraudScorer
 from fraudshield.monitoring.live import LiveMonitor
@@ -35,14 +31,9 @@ class ExplanationUnavailable(Exception):
     pass
 
 
-def payload_hash(record: dict[str, float]) -> str:
-    canonical = json.dumps([repr(float(record[c])) for c in RAW_FEATURE_COLUMNS])
-    return hashlib.sha256(canonical.encode()).hexdigest()
-
-
 @dataclass
 class ScoreRequest:
-    features: dict[str, float]  # Time, V1..V28, Amount
+    features: dict[str, Any]  # raw fields of the active profile's contract
     transaction_id: str | None = None
     ground_truth: int | None = None  # only for replayed labelled history; never shown to the model
     synthetic: bool = False
@@ -60,6 +51,7 @@ class FraudService:
         max_stored: int = 200_000,
     ) -> None:
         self.scorer = scorer
+        self.profile = scorer.profile
         self.engine = engine
         self.store = store
         self.monitor = monitor
@@ -79,7 +71,7 @@ class FraudService:
         ids: list[str] = []
         for i, req in enumerate(requests):
             tid = req.transaction_id or f"txn_{uuid.uuid4().hex[:20]}"
-            h = payload_hash(req.features)
+            h = self.profile.payload_hash(req.features)
             ids.append(tid)
             hashes.append(h)
             if req.transaction_id:
@@ -94,27 +86,34 @@ class FraudService:
             new_idx.append(i)
 
         if new_idx:
-            records = [requests[i].features for i in new_idx]
-            scores = self.scorer.score_columns(self.scorer.records_to_columns(records))
-            per_txn_ms = scores.model_ms / len(new_idx)
+            # Online features read state *before* each event and then record it; only new
+            # transaction IDs get here, so idempotent retries never double-count.
+            t_feat = time.perf_counter()
+            records, online_warnings = self.profile.prepare([requests[i].features for i in new_idx])
+            feature_ms = (time.perf_counter() - t_feat) * 1000
+            scores = self.scorer.score_records(records)
+            per_txn_ms = (scores.model_ms + feature_ms) / len(new_idx)
             now = time.time()
-            rows, alerts = [], 0
+            rows, links, alerts = [], [], 0
             for k, i in enumerate(new_idx):
-                req = requests[i]
+                req, rec = requests[i], records[k]
                 p, raw = float(scores.probability[k]), float(scores.raw[k])
-                amount = float(req.features[AMOUNT_COLUMN])
+                amount = float(rec[self.profile.amount_field])
                 decision = self.engine.decide(p, amount, now)
-                warnings = self.scorer.quality_warnings(scores.base[k], req.features)
+                warnings = online_warnings[k] + self.scorer.quality_warnings(scores.base[k], rec)
                 explanation = signals = None
+                top_reasons: list[str] = []
                 if decision.action != "approve":
                     alerts += 1
-                    explanation = self.scorer.explain(scores.inputs[k])
+                    explanation = self.scorer.explain(scores.inputs[k], rec)
                     signals = self.scorer.signals(scores.base[k])
+                    top_reasons = self.scorer.top_reasons(explanation)
+                event_time = float(rec[self.profile.time_field])
                 row = {
                     "transaction_id": ids[i],
                     "payload_hash": hashes[i],
                     "received_at": now,
-                    "event_time": float(req.features[TIME_COLUMN]),
+                    "event_time": event_time,
                     "amount": amount,
                     "fraud_probability": p,
                     "raw_score": raw,
@@ -130,21 +129,23 @@ class FraudService:
                     "synthetic": int(req.synthetic),
                     "scenario": scenario,
                     "ground_truth": req.ground_truth,
-                    "features": {c: float(req.features[c]) for c in RAW_FEATURE_COLUMNS},
+                    "features": self.profile.stored_features(rec),
                     "explanation": explanation,
                     "signals": signals,
-                    "quality": warnings,
+                    "quality": warnings[:10],
                     "review_status": "open" if decision.action != "approve" else "none",
+                    "top_reasons": top_reasons,
                 }
                 rows.append(row)
+                links += [(kind, h, ids[i], event_time) for kind, h in self.profile.entity_keys(rec).items()]
                 self.monitor.record_quality(warnings)
                 if warnings:
                     self.metrics.quality_warnings.inc(len(warnings))
                 self.metrics.predictions.labels(decision.action, source, self.scorer.version).inc()
                 self.metrics.score.observe(p)
-            self.store.insert_predictions(rows)
+            self.store.insert_predictions(rows, links)
             self.monitor.record_scores(scores.base, scores.probability, alerts, scores.model_ms)
-            self.metrics.inference_latency.observe(scores.model_ms / 1000 / len(new_idx))
+            self.metrics.inference_latency.observe(per_txn_ms / 1000)
             self.metrics.reviews_last_hour.set(self.engine.reviews_last_hour())
             for k, i in enumerate(new_idx):
                 resp = {**self._response(rows[k]), "idempotent_replay": False}
@@ -174,6 +175,7 @@ class FraudService:
             "risk_level": row["risk_level"],
             "recommended_action": row["action"],
             "decision_reasons": row["reasons"],
+            "top_risk_factors": row.get("top_reasons") or [],
             "expected_loss_eur": row["expected_loss"],
             "review_capacity_exceeded": bool(row["over_capacity"]),
             "model_version": row["model_version"],
@@ -199,6 +201,7 @@ class FraudService:
             "scenario": row["scenario"],
             "latency_ms": row["latency_ms"],
             "review_status": row["review_status"],
+            "top_reason": (row.get("top_reasons") or [None])[0],
         }
 
     # ------------------------------------------------------------------ explanations
@@ -218,9 +221,11 @@ class FraudService:
             raise ExplanationUnavailable(
                 f"scored by model {row['model_version']}; current model is {self.scorer.version}"
             )
-        cols = {c: np.asarray([row["features"][c]], dtype=np.float64) for c in RAW_FEATURE_COLUMNS}
-        scores = self.scorer.score_columns(cols)
-        explanation = self.scorer.explain(scores.inputs[0])
+        # Stored features include the online features as they were at scoring time, so this
+        # recomputation is point-in-time and does not touch the online store.
+        rec = {k: (float("nan") if v is None else v) for k, v in row["features"].items()}
+        scores = self.scorer.score_records([rec])
+        explanation = self.scorer.explain(scores.inputs[0], rec)
         signals = self.scorer.signals(scores.base[0])
         self.store.set_explanation(transaction_id, explanation, signals)
         return {
@@ -229,4 +234,31 @@ class FraudService:
             "explanation": explanation,
             "signals": signals,
             "cached": False,
+        }
+
+    # ------------------------------------------------------------------ linked activity
+    def linked(self, transaction_id: str, limit: int = 10) -> dict[str, Any] | None:
+        row = self.store.get(transaction_id)
+        if row is None:
+            return None
+        if not self.profile.linked_activity:
+            return {
+                "transaction_id": transaction_id,
+                "available": False,
+                "reason": f"the {self.profile.name} data has no card, customer or device identifiers",
+                "links": [],
+            }
+        labels = self.profile.link_labels()
+        links = []
+        for kind, summary in self.store.linked(transaction_id, row["event_time"], limit).items():
+            label, strength = labels.get(kind, (kind, "unknown"))
+            links.append({"type": kind, "label": label, "strength": strength, **summary})
+        order = list(labels)
+        links.sort(key=lambda d: order.index(d["type"]) if d["type"] in order else len(order))
+        return {
+            "transaction_id": transaction_id,
+            "available": True,
+            "links": links,
+            "note": "Transactions in this session's store that share an entity key (hashed). Shared keys "
+            "are context for an investigation, not evidence of fraud.",
         }
