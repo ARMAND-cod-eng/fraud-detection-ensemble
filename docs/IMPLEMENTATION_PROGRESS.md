@@ -98,8 +98,9 @@ Hardware: Windows 11 laptop, 8 CPU cores, 8 GB RAM, no GPU. Python 3.12.13, Node
 
 * **CI on GitHub** runs on every push and pull request (tests with the coverage gate, lint, types,
   audits, dashboard build, Docker build); it ran green for v1. Check the v2 commits' run on GitHub.
-* **Hugging Face Space:** the image was built and run locally; publishing it needs the user's own
-  Hugging Face account and token (`scripts/deploy_hf_space.ps1`).
+* **Hugging Face Space:** published on 2026-10-18 at https://huggingface.co/spaces/notuearmand250/fraudshield (ULB profile, demo mode).
+  The first deploy showed "refused to connect" on the Space page: the app's anti-framing headers
+  blocked the huggingface.co iframe. Fixed with an allow-list (`FRAUDSHIELD_FRAME_ANCESTORS`).
 * **`trainer` Docker target and the `monitoring` Compose profile** (Prometheus/Grafana) were not
   built or started (disk/RAM limits on this machine); configs are provided, untested.
 * **AWS:** design + task-definition template only; nothing provisioned.
@@ -113,8 +114,7 @@ Hardware: Windows 11 laptop, 8 CPU cores, 8 GB RAM, no GPU. Python 3.12.13, Node
 
 ## Next actions (suggested order)
 
-1. Publish the Hugging Face Space and add the live-demo link to the README.
-2. Record a 90-second screen capture following `docs/DEMO_SCRIPT.md`.
-3. Optional: Redis-backed feature store for multi-instance serving; shadow (champion/challenger)
+1. Record a 90-second screen capture following `docs/DEMO_SCRIPT.md`.
+2. Optional: Redis-backed feature store for multi-instance serving; shadow (champion/challenger)
    serving using the backtest's retraining cadence.
-4. Optional: deploy to AWS following `docs/DEPLOYMENT.md` (costs money; your decision).
+3. Optional: deploy to AWS following `docs/DEPLOYMENT.md` (costs money; your decision).
