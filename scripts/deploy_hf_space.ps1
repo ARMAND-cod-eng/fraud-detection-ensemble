@@ -5,6 +5,8 @@
 .DESCRIPTION
   Prerequisites (one time, in your own account):
     1. Create a Space at https://huggingface.co/new-space  (SDK: Docker, template: Blank, hardware: CPU basic).
+       Docker Spaces need a Hugging Face PRO plan (USD 9/month as of October 2026); the CPU basic
+       hardware itself has no hourly cost.
     2. Create an access token with write permission at https://huggingface.co/settings/tokens.
   When git asks for credentials during the push, enter your HF username and that token as the
   password. Git's credential manager stores it; this script never reads or prints it.
