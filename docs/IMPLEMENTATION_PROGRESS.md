@@ -61,7 +61,7 @@ Hardware: Windows 11 laptop, 8 CPU cores, 8 GB RAM, no GPU. Python 3.12.13, Node
     Validation selects the original columns. Baseline reproduced exactly across runs.
 14. **Quick wins (2026-10-17):** public demo mode + Hugging Face Space Dockerfile (built and run
     locally; publishing is the user's step), README GIF, `docs/SYSTEM_DESIGN.md`, CI coverage gate,
-    pip-audit, npm audit, Dependabot, pre-commit, CHANGELOG, tag `v1.0.0`.
+    pip-audit, npm audit, Dependabot (removed on 2026-10-18), pre-commit, CHANGELOG, tag `v1.0.0`.
 15. **v2 feature store (2026-10-17):** `features/velocity.py` with an offline engine and an online
     store. Hypothesis found two float edge cases (a near-zero window total crossing the ratio
     threshold; cross-entity cumulative-sum cancellation), both fixed. Real-data parity:
