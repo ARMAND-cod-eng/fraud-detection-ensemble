@@ -16,6 +16,15 @@ cd dashboard && npm ci && npm run build && cd ..
 uvicorn api.main:app --port 8000     # dashboard + API on http://localhost:8000, docs at /docs
 ```
 
+**Second profile (IEEE-CIS v2, local only).** `FRAUDSHIELD_PROFILE=ieee` switches the request
+contract, online velocity features, replay source and analyst text. Its paths default to
+`artifacts/ieee/`, `var/fraudshield_ieee.db` and the replay/warm-up files written by
+`fraudshield train-ieee`; each can be overridden (`FRAUDSHIELD_ARTIFACTS_DIR`, `FRAUDSHIELD_DB_PATH`,
+`FRAUDSHIELD_REPLAY_FILE`, `FRAUDSHIELD_WARMUP_FILE`). The service refuses to start (readiness
+fails with `RuntimeError`) if the profile does not match the artifact. The feature store is in
+process, so this profile runs as a single instance. The IEEE-CIS data and models must not be hosted
+publicly (competition rules); the Hugging Face Space uses the ULB profile.
+
 ## 2. Docker
 
 ```bash
