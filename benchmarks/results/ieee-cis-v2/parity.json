@@ -1,0 +1,31 @@
+{
+  "rows_streamed_online": 118108,
+  "warm_up_events": 18653,
+  "features": 15,
+  "values_compared": 1771620,
+  "mismatches": 0,
+  "mismatches_per_feature": {
+    "v_card_count_1h": 0,
+    "v_card_count_24h": 0,
+    "v_card_count_7d": 0,
+    "v_card_amount_24h": 0,
+    "v_card_amount_ratio_7d": 0,
+    "v_card_secs_since_prev": 0,
+    "v_card_distinct_email_7d": 0,
+    "v_card_distinct_device_7d": 0,
+    "v_card_distinct_addr_7d": 0,
+    "v_card_email_count_7d": 0,
+    "v_device_count_1h": 0,
+    "v_device_distinct_cards_24h": 0,
+    "v_addr_distinct_cards_24h": 0,
+    "v_email_count_1h": 0,
+    "v_email_distinct_cards_24h": 0
+  },
+  "offline_seconds_full_history": 6.8,
+  "online_seconds_warm_up_plus_stream": 12.6,
+  "online_microseconds_per_event": 92.0,
+  "tolerance": {
+    "rtol": 1e-09,
+    "atol": 1e-06
+  }
+}

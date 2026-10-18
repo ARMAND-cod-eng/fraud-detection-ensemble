@@ -105,6 +105,15 @@ def verify_artifact(model_dir: str | Path) -> None:
             raise ArtifactIntegrityError(f"checksum mismatch for {name} in {d}")
 
 
+def transformer_from_dict(payload: dict[str, Any]) -> Any:
+    """Rebuild the preprocessor recorded in an artifact (creditcard ``FeatureBuilder`` by default)."""
+    if payload.get("type") == "ieee_v2":
+        from fraudshield.profiles.ieee import IEEEPreprocessor
+
+        return IEEEPreprocessor.from_dict(payload)
+    return FeatureBuilder.from_dict(payload)
+
+
 def load_model(model_dir: str | Path, verify: bool = True) -> tuple[FraudModel, dict[str, Any]]:
     d = Path(model_dir)
     if verify:
@@ -124,7 +133,7 @@ def load_model(model_dir: str | Path, verify: bool = True) -> tuple[FraudModel, 
         iforest = joblib.load(d / "iforest.joblib")
     model = FraudModel(
         kind=spec["kind"],
-        feature_builder=FeatureBuilder.from_dict(spec["feature_builder"]),
+        feature_builder=transformer_from_dict(spec["feature_builder"]),
         booster=booster,
         linear=LinearModel.from_dict(spec["linear"]) if "linear" in spec else None,
         iforest=iforest,

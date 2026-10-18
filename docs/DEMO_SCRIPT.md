@@ -17,3 +17,12 @@ built, `POST /api/v1/admin/reset` called, browser at `http://localhost:8000/#/ov
 0.21 out-of-time) and the dataset has no entity identifiers, so a graph model would be invented
 structure. On IEEE-CIS, which has card/address/device fields, past-only entity counts were tested:
 cumulative counts drifted and hurt (−0.010 PR-AUC), trailing windows fixed the drift but added nothing.
+
+**If asked "how would this work in real time with velocity features?" (v2):** "Every velocity
+feature is declared once and computed by two engines: a vectorised one for training and a
+per-entity online store for serving. A transaction reads its features as of before it happened,
+then updates the store, and retries never double-count. I proved parity on 118k real transactions,
+with 0 mismatches in 1.77M values, and again through the running API. The honest result: on
+authorisation-time fields the features add +0.009 PR-AUC, real but small. A static model loses 22%
+in three months, so I'd retrain monthly. And the model failed the gate I set before the run, so it
+doesn't ship."

@@ -1,17 +1,19 @@
 """Controlled transaction replay into the scoring service.
 
-Scenarios
-* ``historical``  - the held-out test window (real, labelled, never used for training) in
-  chronological order. Labels are stored as delayed ground truth, never shown to the model.
-* ``enriched``    - real held-out transactions resampled so ~5% are (real) frauds. Makes the demo
-  eventful; alert rates are inflated by construction and the UI says so.
-* ``synthetic_drift`` - held-out rows with an injected shift in Amount and several components.
-  Rows are marked ``synthetic=True`` and carry no ground truth.
+Scenarios come from the serving profile:
+* creditcard: ``historical`` (held-out window, chronological), ``enriched`` (resampled to ~5% real
+  frauds; inflated alert rate by construction) and ``synthetic_drift`` (injected shift, marked
+  ``synthetic=True``, no ground truth).
+* ieee: ``historical`` only - the held-out window streamed *in order* through the online feature
+  store, continuing where the previous replay stopped. Resampling would break the entity histories
+  that velocity features are computed from.
 
+Labels are stored as delayed ground truth and never shown to the model.
 Reproducibility: the row order and every perturbation derive from ``seed``.
 Backpressure: a bounded queue sits between the pacing producer and scoring workers; when
 scoring falls behind, the producer waits instead of buffering without limit. Repeated scoring
-failures stop the run in a ``failed`` state instead of retrying forever.
+failures stop the run in a ``failed`` state instead of retrying forever. Profiles with stateful
+online features use a single worker so events reach the feature store in time order.
 """
 
 from __future__ import annotations
@@ -21,22 +23,12 @@ import contextlib
 import time
 import uuid
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
-import numpy as np
-import pandas as pd
-
-from fraudshield.data.schema import LABEL_COLUMN, RAW_FEATURE_COLUMNS, V_COLUMNS
-from fraudshield.data.synthetic import generate_creditcard_like
+from fraudshield.profiles.creditcard import SCENARIOS
 from fraudshield.service import FraudService, ScoreRequest
 
-Scenario = Literal["historical", "enriched", "synthetic_drift"]
-SCENARIOS: dict[str, str] = {
-    "historical": "Held-out test window, chronological, natural fraud rate (~0.13%)",
-    "enriched": "Held-out transactions resampled to up to 5% real frauds, each at most once (inflated alert rate)",
-    "synthetic_drift": "SYNTHETIC: held-out rows with injected Amount/component shift (drift demo)",
-}
+__all__ = ["SCENARIOS", "ReplayEngine", "ReplayStatus"]
 
 
 @dataclass
@@ -71,75 +63,30 @@ class ReplayEngine:
     def __init__(
         self,
         service: FraudService,
-        replay_file: Path | None,
         queue_size: int = 200,
         workers: int = 2,
         max_consecutive_failures: int = 20,
         timeout_s: float = 5.0,
     ) -> None:
         self.service = service
-        self.replay_file = replay_file
+        self.profile = service.profile
         self.queue_size = queue_size
-        self.workers = workers
+        self.workers = 1 if self.profile.ordered_stream else workers
         self.max_consecutive_failures = max_consecutive_failures
         self.timeout_s = timeout_s
         self.status = ReplayStatus()
         self._tasks: list[asyncio.Task[None]] = []
         self._resume = asyncio.Event()
         self._stop = asyncio.Event()
-        self._frame: pd.DataFrame | None = None
+
+    @property
+    def scenarios(self) -> dict[str, str]:
+        return self.profile.scenarios
 
     # ------------------------------------------------------------------ data
-    def _source(self) -> tuple[pd.DataFrame, str]:
-        if self._frame is None:
-            if self.replay_file is not None and Path(self.replay_file).exists():
-                self._frame = pd.read_csv(self.replay_file)
-                self._source_name = f"held-out test window ({Path(self.replay_file).name})"
-            else:
-                self._frame = generate_creditcard_like(n=20_000, fraud_rate=0.01, seed=7)
-                self._source_name = "SYNTHETIC fallback (replay file not found)"
-        return self._frame, self._source_name
-
     def build_rows(self, scenario: str, count: int, seed: int) -> tuple[list[ScoreRequest], list[str]]:
-        df, source_name = self._source()
-        rng = np.random.default_rng(seed)
-        notes = [f"source: {source_name}"]
-        synthetic_source = source_name.startswith("SYNTHETIC")
-        if scenario == "historical":
-            start = int(rng.integers(0, max(1, len(df) - count))) if len(df) > count else 0
-            sample = df.iloc[start : start + count]
-            notes.append(f"contiguous chronological slice starting at row {start}")
-        elif scenario == "enriched":
-            fraud = df[df[LABEL_COLUMN] == 1]
-            legit = df[df[LABEL_COLUMN] == 0]
-            # Each real fraud appears at most once: long runs get a lower fraud share instead of copies.
-            n_fraud = max(1, min(round(count * 0.05), len(fraud)))
-            idx_f = rng.choice(len(fraud), size=n_fraud, replace=False)
-            idx_l = rng.choice(len(legit), size=min(count - n_fraud, len(legit)), replace=False)
-            sample = pd.concat([fraud.iloc[idx_f], legit.iloc[idx_l]]).sort_values("Time", kind="stable")
-            notes.append(
-                f"{n_fraud} distinct real frauds among {len(sample)} rows ({n_fraud / len(sample):.1%})"
-            )
-        elif scenario == "synthetic_drift":
-            sample = df.iloc[rng.choice(len(df), size=min(count, len(df)), replace=count > len(df))].copy()
-            sample["Amount"] = (sample["Amount"] * rng.uniform(2.0, 3.5, len(sample))).round(2)
-            for c in V_COLUMNS[:6]:
-                sample[c] = sample[c] + 1.5 + rng.normal(0, 0.3, len(sample))
-            notes.append("Amount x2-3.5 and V1-V6 shifted by +1.5: SYNTHETIC rows, no ground truth")
-        else:
-            raise ValueError(f"unknown scenario {scenario!r}; choose from {sorted(SCENARIOS)}")
-        has_labels = scenario != "synthetic_drift" and not synthetic_source
-        reqs = []
-        for rec, label in zip(
-            sample[list(RAW_FEATURE_COLUMNS)].to_dict("records"), sample[LABEL_COLUMN].tolist(), strict=True
-        ):
-            reqs.append(
-                ScoreRequest(
-                    features=rec,
-                    ground_truth=int(label) if has_labels else None,
-                    synthetic=scenario == "synthetic_drift" or synthetic_source,
-                )
-            )
+        items, notes = self.profile.replay_items(scenario, count, seed)
+        reqs = [ScoreRequest(features=rec, ground_truth=label, synthetic=syn) for rec, label, syn in items]
         return reqs, notes
 
     # ------------------------------------------------------------------ control
@@ -202,6 +149,7 @@ class ReplayEngine:
         return self.status
 
     def _finish(self, state: str) -> None:
+        self.profile.on_replay_end(self.status.scored + self.status.failed)
         self.status.state = state
         self.status.finished_at = time.time()
         self.status.queue_depth = 0

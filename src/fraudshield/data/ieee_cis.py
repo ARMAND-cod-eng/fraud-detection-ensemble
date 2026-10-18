@@ -23,12 +23,13 @@ Leakage controls
 from __future__ import annotations
 
 import warnings
-from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+
+from fraudshield.features.velocity import window_counts, window_distinct
 
 LABEL = "isFraud"
 TIME = "TransactionDT"
@@ -89,6 +90,29 @@ def load_ieee_cis(root: str | Path, nrows: int | None = None) -> pd.DataFrame:
     return tx
 
 
+def load_contract(root: str | Path, nrows: int | None = None) -> pd.DataFrame:
+    """Load only the authorisation-time field contract (v2), sorted by time."""
+    from fraudshield.profiles.ieee import IDENTITY_CONTRACT_FIELDS, TX_CONTRACT_FIELDS
+
+    root = Path(root)
+    tx_path, id_path = root / "train_transaction.csv", root / "train_identity.csv"
+    if not tx_path.exists():
+        raise FileNotFoundError(f"{tx_path} not found (see the docstring of this module)")
+    cols = ["TransactionID", TIME, LABEL, *TX_CONTRACT_FIELDS]
+    text = {c: "object" for c in TX_TEXT_COLUMNS if c in cols}
+    tx = pd.read_csv(tx_path, usecols=cols, nrows=nrows, dtype=text)
+    if id_path.exists():
+        ident = pd.read_csv(id_path, usecols=["TransactionID", *IDENTITY_CONTRACT_FIELDS], dtype="object")
+        ident["TransactionID"] = ident["TransactionID"].astype("int64")
+        ident = ident.set_index("TransactionID").reindex(tx["TransactionID"])
+        for c in IDENTITY_CONTRACT_FIELDS:
+            tx[c] = ident[c].to_numpy()
+    else:
+        for c in IDENTITY_CONTRACT_FIELDS:
+            tx[c] = None
+    return tx.sort_values(TIME, kind="stable").reset_index(drop=True)
+
+
 def entity_key(df: pd.DataFrame, cols: list[str]) -> pd.Series:
     present = [c for c in cols if c in df.columns]
     if not present:
@@ -146,52 +170,6 @@ def _cumulative(out: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
             out[col] = np.where(missing, np.nan, distinct_before.astype(float)).astype(np.float32)
             names.append(col)
     return out, names
-
-
-def window_counts(codes: np.ndarray, t: np.ndarray, window: int) -> np.ndarray:
-    """For each row: number of earlier rows with the same code and time in [t - window, t].
-
-    Vectorised: sort by (code, time, row) and encode each row as ``code * big + time``; one
-    ``searchsorted`` then finds every window start without crossing into the previous code's block.
-    """
-    n = len(t)
-    if n == 0:
-        return np.zeros(0, dtype=np.int64)
-    t64 = np.asarray(t, dtype=np.int64)
-    order = np.lexsort((np.arange(n), t64, codes))
-    c, tt = np.asarray(codes, dtype=np.int64)[order], t64[order]
-    base = int(tt.min())
-    big = int(tt.max()) - base + window + 1
-    comp = c * big + (tt - base)
-    left = np.searchsorted(comp, comp - window, side="left")
-    counts = np.empty(n, dtype=np.int64)
-    counts[order] = np.arange(n) - left
-    return counts
-
-
-def window_distinct(
-    entity_codes: np.ndarray, other_codes: np.ndarray, t: np.ndarray, window: int
-) -> np.ndarray:
-    """For each row (time order): distinct ``other`` values seen earlier with the same entity in [t - window, t]."""
-    state: dict[int, tuple[deque[tuple[int, int]], dict[int, int]]] = {}
-    out = np.empty(len(t), dtype=np.int64)
-    rows = zip(entity_codes.tolist(), other_codes.tolist(), np.asarray(t).tolist(), strict=True)
-    for i, (e, o, ti) in enumerate(rows):
-        st = state.get(e)
-        if st is None:
-            st = state[e] = (deque(), {})
-        dq, cnt = st
-        while dq and dq[0][0] < ti - window:
-            _, old = dq.popleft()
-            k = cnt[old] - 1
-            if k:
-                cnt[old] = k
-            else:
-                del cnt[old]
-        out[i] = len(cnt)
-        dq.append((ti, o))
-        cnt[o] = cnt.get(o, 0) + 1
-    return out
 
 
 def _windowed(out: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
@@ -286,7 +264,12 @@ def synthetic_ieee_like(n: int = 4000, seed: int = 0) -> pd.DataFrame:
             "card4": rng.choice(["visa", "mastercard"], n),
             "card6": rng.choice(["debit", "credit"], n),
             "addr1": np.where(rng.random(n) < 0.1, np.nan, rng.integers(100, 500, n)),
+            "addr2": np.where(rng.random(n) < 0.1, np.nan, 87.0),
+            "dist1": np.where(rng.random(n) < 0.5, np.nan, rng.integers(0, 300, n).astype(float)),
             "P_emaildomain": rng.choice(["gmail.com", "yahoo.com", "anonymous.com", None], n),
+            "R_emaildomain": rng.choice(["gmail.com", "hotmail.com", None, None], n),
+            **{f"M{i}": rng.choice(["T", "F", None], n) for i in range(1, 10)},
+            "DeviceType": rng.choice(["desktop", "mobile", None], n),
             "DeviceInfo": np.where(
                 fraud == 1, rng.choice(["devA", "devB"], n), rng.choice([f"dev{i}" for i in range(300)], n)
             ),

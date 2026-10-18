@@ -10,26 +10,22 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 import numpy as np
-import pandas as pd
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 
 from api.deps import ApiError, AppState, get_service, get_state, require_api_key
 from api.schemas import PolicyIn, ReplayRateIn, ReplayStartIn
 from fraudshield import __version__
-from fraudshield.data.schema import AMOUNT_COLUMN, LABEL_COLUMN, TIME_COLUMN
 from fraudshield.decision_engine.policy import CostAssumptions, PolicyConfig
 from fraudshield.decision_engine.simulate import capacity_curve, simulate_policy
 from fraudshield.models.artifact import ModelRegistry
-from fraudshield.streaming.replay import SCENARIOS
+from fraudshield.profiles import get_profile
+from fraudshield.profiles.creditcard import ATTRIBUTION as DATA_ATTRIBUTION
 
 router = APIRouter(prefix="/api/v1")
 _sim_cache: dict[str, Any] = {}
 _sim_lock = threading.Lock()
-DATA_ATTRIBUTION = (
-    "Data: Credit Card Fraud Detection, Machine Learning Group - ULB and Worldline "
-    "(Open Database License 1.0 / Database Contents License 1.0)."
-)
+__all__ = ["DATA_ATTRIBUTION", "router"]
 
 
 def _forbid_in_demo(state: AppState, action: str) -> None:
@@ -39,17 +35,22 @@ def _forbid_in_demo(state: AppState, action: str) -> None:
 
 @router.get("/config", tags=["ops"])
 def public_config(state: AppState = Depends(get_state)) -> dict[str, Any]:
-    """Non-secret settings the dashboard adapts to (demo limits, version, data attribution)."""
+    """Non-secret settings the dashboard adapts to (profile, demo limits, version, attribution)."""
     s = state.settings
+    profile = state.profile or get_profile(s)
     return {
         "version": __version__,
         "environment": s.environment,
+        "profile": profile.name,
+        "currency": profile.currency,
+        "scenarios": profile.scenarios,
+        "linked_activity": profile.linked_activity,
         "demo_mode": s.demo_mode,
         "max_replay_tps": s.demo_max_replay_tps if s.demo_mode else 1000.0,
         "max_replay_count": s.demo_max_replay_count if s.demo_mode else 200_000,
         "policy_changes_allowed": not s.demo_mode,
         "demo_note": s.demo_note,
-        "data_attribution": DATA_ATTRIBUTION,
+        "data_attribution": profile.data_attribution,
     }
 
 
@@ -131,24 +132,18 @@ def update_policy(
     return {"version": policy.version, "config": policy.model_dump()}
 
 
-def _held_out_scores(state: AppState, service: Any) -> dict[str, Any]:
+def _held_out_scores(service: Any) -> dict[str, Any]:
+    """Score the labelled held-out window once per model version (offline features for ieee)."""
     key = service.scorer.version
     with _sim_lock:
         if key not in _sim_cache:
-            path = state.settings.replay_file
-            if not path.exists():
-                raise ApiError(404, "not_found", "held-out replay file not found; run training first")
-            df = pd.read_csv(path)
-            cols = {c: df[c].to_numpy(dtype=np.float64) for c in df.columns if c != LABEL_COLUMN}
-            p = service.scorer.score_columns(cols).probability
-            hours = float(df[TIME_COLUMN].max() - df[TIME_COLUMN].min()) / 3600
+            try:
+                data, y, amount, hours = service.profile.held_out()
+            except FileNotFoundError as exc:
+                raise ApiError(404, "not_found", str(exc)) from None
+            p = service.scorer.score_columns(data).probability
             _sim_cache.clear()
-            _sim_cache[key] = {
-                "y": df[LABEL_COLUMN].to_numpy(),
-                "p": p,
-                "amount": df[AMOUNT_COLUMN].to_numpy(),
-                "hours": hours,
-            }
+            _sim_cache[key] = {"y": np.asarray(y), "p": p, "amount": np.asarray(amount), "hours": hours}
         return _sim_cache[key]
 
 
@@ -158,7 +153,7 @@ def simulate(
 ) -> dict[str, Any]:
     """What-if: apply a policy to the labelled held-out test window and cost it."""
     policy = _policy_from(body, service.engine.policy)
-    d = _held_out_scores(state, service)
+    d = _held_out_scores(service)
     caps = sorted({10, 25, 50, 100, 200, body.max_reviews_per_hour})
     return {
         "data": "held-out test window (labelled); the default thresholds were chosen on validation, not here",
@@ -240,8 +235,8 @@ def _replay(state: AppState) -> Any:
 
 
 @router.get("/replay/scenarios", tags=["replay"])
-def replay_scenarios() -> dict[str, str]:
-    return SCENARIOS
+def replay_scenarios(state: AppState = Depends(get_state)) -> dict[str, str]:
+    return dict((state.profile or get_profile(state.settings)).scenarios)
 
 
 @router.get("/replay/status", tags=["replay"])
@@ -260,10 +255,18 @@ async def replay_start(body: ReplayStartIn, state: AppState = Depends(get_state)
             f"the public demo allows at most {s.demo_max_replay_tps:g} tx/s "
             f"and {s.demo_max_replay_count} transactions per replay",
         )
+    if body.scenario not in rep.scenarios:
+        raise ApiError(
+            422,
+            "unsupported_scenario",
+            f"scenario {body.scenario!r} is not available for this profile; choose from {sorted(rep.scenarios)}",
+        )
     try:
         status = await rep.start(body.scenario, body.rate_tps, body.count, body.seed)
     except RuntimeError as exc:
         raise ApiError(409, "replay_running", str(exc)) from None
+    except FileNotFoundError as exc:
+        raise ApiError(404, "replay_data_missing", str(exc)) from None
     return status.to_dict()
 
 
