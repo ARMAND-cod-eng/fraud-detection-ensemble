@@ -1,0 +1,23 @@
+[12:03:50] loaded 590540 rows; computing 15 velocity features offline
+[12:05:41] raw_contract: 28 inputs, 886 trees, val PR-AUC 0.2773
+[12:06:55] raw_plus_velocity: 43 inputs, 438 trees, val PR-AUC 0.2867
+[12:07:28] velocity: val PR-AUC gain +0.0094 (90% CI low +0.0023) -> selected: raw_plus_velocity
+[12:07:28] scoring test window (final report)
+[12:08:03] online latency p50 0.787 ms p95 1.352 ms
+[12:09:59] rolling monthly backtest
+[12:12:11] backtest block 3: static 0.2534 retrained 0.2534
+[12:13:11] backtest block 4: static 0.2208 retrained 0.2398
+[12:14:40] backtest block 5: static 0.1976 retrained 0.2485
+[12:14:44] saved model artifact artifacts\ieee\models\ieee-v2-raw-plus-velocity-20261017-171440
+[12:14:45] NOT promoted: gate failed on test_pr_auc, test_roc_auc
+[12:14:49] done in 665.8 s
+{
+  "version": "ieee-v2-raw-plus-velocity-20261017-171440",
+  "selected_model": "raw_plus_velocity",
+  "test_pr_auc": {
+    "raw_contract": 0.20764493711191653,
+    "raw_plus_velocity": 0.21661097883697217
+  },
+  "share_of_gap_recovered": 0.029833556895322154
+}
+EXIT 0

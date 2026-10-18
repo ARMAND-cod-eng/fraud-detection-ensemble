@@ -17,17 +17,31 @@ and the base value becomes ``a * base + b``; contributions still sum to the cali
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Protocol
 
 import numpy as np
 import pandas as pd
 import xgboost as xgb
 
-from fraudshield.features.engineering import FeatureBuilder
 from fraudshield.models.anomaly import IsolationForestDetector
 from fraudshield.models.autoencoder import AutoencoderDetector
 from fraudshield.models.calibration import PlattCalibrator
+
+
+class FeatureTransformer(Protocol):
+    """What a model needs from a preprocessor (``FeatureBuilder``, ``IEEEPreprocessor``)."""
+
+    feature_names: list[str]
+    profile: dict[str, dict[str, Any]]
+
+    def transform(self, data: pd.DataFrame | Mapping[str, Sequence[Any] | np.ndarray]) -> np.ndarray: ...
+
+    def percentile(self, name: str, value: float) -> float | None: ...
+
+    def to_dict(self) -> dict[str, Any]: ...
+
 
 SIGNAL_NAMES = ("iforest_score", "autoencoder_error")
 SIGNAL_DESCRIPTIONS = {
@@ -78,7 +92,7 @@ def _sigmoid(m: np.ndarray) -> np.ndarray:
 @dataclass
 class FraudModel:
     kind: str
-    feature_builder: FeatureBuilder
+    feature_builder: FeatureTransformer
     booster: xgb.Booster | None = None
     linear: LinearModel | None = None
     iforest: IsolationForestDetector | None = None

@@ -1,8 +1,9 @@
 # ML evaluation report
 
-All numbers in this document were produced by code in this repository on 2026-10-16 and can be
-regenerated with the commands in §10. Machine-readable results:
-`benchmarks/results/creditcard-chronological/metrics.json` (+ `report.md`, `figures/`).
+All numbers in this document were produced by code in this repository (§1–§10 on 2026-10-16,
+§11–§12 on 2026-10-17) and can be regenerated with the commands in §10 and §12. Machine-readable
+results: `benchmarks/results/creditcard-chronological/metrics.json` (+ `report.md`, `figures/`),
+`benchmarks/results/ieee-cis/` and `benchmarks/results/ieee-cis-v2/`.
 
 ## 1. Question
 
@@ -207,3 +208,111 @@ variant, selection on validation PR-AUC fixed in advance. Full details:
   honest version of relationship features, and they did not help here.
 * The selected model catches 23.8% of frauds at a 0.1% false-positive rate and 42.7% at 1%;
   its top 118 alerts (0.1% of transactions) are 99.2% fraud.
+
+
+## 12. FraudShield v2: IEEE-CIS on authorisation-time fields + online velocity features
+
+§11 used all 431 IEEE-CIS columns. About 370 of them (`C`, `D`, `V`, `id_*`) are aggregates computed
+by the data provider from history a merchant does not have. v2 asks the merchant-side question:
+**with only the raw fields available when a card is authorised, plus velocity features we compute
+ourselves in real time, how good is the model, and do the velocity features earn their place?**
+Config: [configs/ieee_v2.yaml](../configs/ieee_v2.yaml). Report:
+[benchmarks/results/ieee-cis-v2/report.md](../benchmarks/results/ieee-cis-v2/report.md).
+Command: `fraudshield train-ieee` (11 minutes on an 8-core laptop CPU).
+
+### Protocol (fixed before the run)
+
+* **Field contract (24 raw fields):** `TransactionAmt`, `ProductCD`, `card1`–`card6`, `addr1`–`addr2`,
+  `dist1`, purchaser/recipient e-mail domain, `M1`–`M9`, `DeviceType`, `DeviceInfo`. Derived row-local
+  inputs: hour of day, day of week, cents part of the amount, e-mail domains match.
+* **15 velocity features**, declared once in `fraudshield.features.velocity` and computed past-only
+  (window `[t − W, t]` over earlier events): per card (`card1`, `card2`, `card3`, `card5`) counts over
+  1 h / 24 h / 7 d, amount spent in 24 h, amount ÷ 7-day mean, seconds since the previous transaction,
+  distinct e-mail domains / device models / billing regions in 7 days; card + e-mail domain count over
+  7 days; per device model, billing region and e-mail domain: recent counts and distinct cards in 24 h.
+  Windowed only: §11 showed that cumulative counts drift.
+* Same chronological 60/20/20 split as §11. Early stopping on the last 15% of the *training* period.
+* **Selection rule:** the velocity variant is adopted only if its validation PR-AUC gain is positive
+  and the paired-bootstrap 90% CI of the gain excludes zero (500 resamples).
+* Platt calibration and thresholds on validation; test scored once; 95% bootstrap CIs on test.
+* **Promotion gate** (declared before any v2 result): test PR-AUC ≥ 0.30, ROC-AUC ≥ 0.85, p95 latency
+  ≤ 50 ms.
+
+### Results
+
+| Variant (test, 118,108 transactions, 4,064 frauds) | Inputs | Val PR-AUC | Test PR-AUC [95% CI] | Δ vs raw [95% CI] | ROC-AUC | Recall @ FPR 1% | Precision, top 0.1% |
+|---|---:|---:|---|---|---:|---:|---:|
+| Raw contract | 28 | 0.277 | 0.208 [0.196, 0.222] | — | 0.806 | 16.2% | 57.6% |
+| **Raw + velocity (selected)** | 43 | 0.287 | **0.217** [0.204, 0.231] | **+0.009** [+0.001, +0.018] | 0.821 | 17.3% | 65.3% |
+| *Reference: all 431 columns (§11)* | 431 | 0.627 | 0.508 [0.492, 0.522] | | 0.887 | 42.7% | 99.2% |
+
+* **Selection:** validation gain +0.0094, 90% CI [+0.0023, +0.0165] → velocity adopted. The test
+  confirms the direction with a 95% CI that excludes zero (p(Δ ≤ 0) = 0.018).
+* **The gain is real but small: velocity recovers 3% of the gap** between the raw contract and the
+  vendor-feature model (0.208 → 0.217 of 0.508). The vendor aggregates encode longer histories and,
+  plausibly, cross-merchant information that a single merchant's stream does not contain. Our card key
+  (`card1`–`card5`) is also only a proxy for a card: the data has no card or account ID.
+* Two velocity features reach the global top 12 by mean |SHAP|: distinct cards per e-mail domain in 24 h
+  (8th) and card + e-mail domain count over 7 days (12th). The amount, recipient e-mail domain, card type
+  and match checks rank higher.
+* **Calibration** (Platt, validation-fitted): test ECE 0.0035 (raw 0.0092), Brier 0.0300.
+
+### Operating point and a disclosed protocol amendment
+
+The pre-registered threshold rule (minimise review cost + missed-fraud amount on validation, $5 per
+review) chose **0.021**, which flags **40%** of transactions: at a 3.4% fraud rate, a $5 review "pays"
+for almost any transaction. That is not an operable policy. After that first full run, which had
+already scored the test window, the rule was amended to **the cost-optimal threshold among those that
+flag ≤ 5% of validation transactions**. The amended rule uses validation data only, but it was changed
+after seeing a test run, so **test operating-point numbers are post-hoc**. Ranking metrics (PR-AUC,
+ROC-AUC) are unaffected.
+
+| Threshold | Test alerts | Precision | Recall |
+|---|---:|---:|---:|
+| 0.021 (original rule; first run) | 47,369 (40.1%) | 7.2% | 83.9% |
+| **0.167 (amended rule)** | 4,809 (4.1%) | 26.3% | 31.1% |
+
+### Monthly backtest (static vs. retrained, with a label-maturity gap)
+
+30-day blocks over the 182 days. The *static* model is trained once on months 0–1. The *retrained*
+model, for each scored month *m*, is trained on months `0 … m−2`: month *m−1* is excluded because its
+chargebacks would not have arrived yet.
+
+| Scored month | Frauds | Static PR-AUC | Retrained monthly | Δ |
+|---:|---:|---:|---:|---:|
+| 3 | 3,898 | 0.253 | 0.253 | 0 (same training data) |
+| 4 | 2,850 | 0.221 | 0.240 | +0.019 |
+| 5 | 2,972 | 0.198 | 0.249 | +0.051 |
+
+The static model's PR-AUC falls by 22% (0.253 → 0.198) between months 3 and 5. Retraining on mature labels holds
+it at about 0.24–0.25. **Recommendation: retrain monthly** (a cheaper cadence would be visible in
+this table as decay), and compare a champion with a challenger on the newest month that has
+mature labels.
+
+### Online/offline parity and latency
+
+* Feature engines: `scripts/check_feature_parity.py` warms the online store with the 7 days before the
+  test window (18,653 events) and streams all 118,108 test transactions: **0 mismatches out of
+  1,771,620 values** (tolerance 1e-6) against the offline features used for training.
+* Full serving path: `scripts/check_served_parity.py` replays 5,000 transactions through the running
+  API (HTTP → service → online store → SQLite) and compares the features stored with each prediction:
+  **0 mismatches out of 75,000 values**, at 339 transactions/s.
+* Latency per transaction (feature-store read + update, preprocessing, model, calibration; in-process,
+  this laptop): p50 **0.79 ms**, p95 **1.35 ms**, p99 1.72 ms; the feature store alone p95 0.18 ms.
+
+### Promotion
+
+The model **failed the pre-registered gate** (test PR-AUC 0.217 < 0.30; ROC-AUC 0.821 < 0.85) and was
+not promoted by the pipeline. The limits were not lowered after the fact. To demonstrate the `ieee`
+serving profile locally, it was promoted with `fraudshield models promote --force`. The registry
+records the override, its reason and the failed gate report, and the dashboard shows the gate result.
+In production this model would not ship: the gate did its job.
+
+### Threats to validity
+
+* One seed and fixed hyper-parameters (shared with §11); no tuning for the reduced field set.
+* `card1`–`card5` is not a unique card identity (masked issuer and card-type fields), so velocity "per card" pools several
+  real cards. This likely understates what velocity features achieve with a real card or account key.
+* The velocity specs were designed before the run, but by someone who had seen §11's results.
+* The replay demonstrates the serving path on historical data at accelerated speed; it is not a live
+  traffic test.

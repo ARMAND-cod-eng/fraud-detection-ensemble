@@ -1,0 +1,29 @@
+[11:45:22] loaded 590540 rows; computing 15 velocity features offline
+[11:47:02] raw_contract: 28 inputs, 886 trees, val PR-AUC 0.2773
+[11:48:07] raw_plus_velocity: 43 inputs, 438 trees, val PR-AUC 0.2867
+[11:48:40] velocity: val PR-AUC gain +0.0094 (90% CI low +0.0023) -> selected: raw_plus_velocity
+[11:48:40] scoring test window (final report)
+[11:49:15] online latency p50 0.841 ms p95 1.565 ms
+[11:51:11] rolling monthly backtest
+[11:53:16] backtest block 3: static 0.2534 retrained 0.2534
+[11:54:16] backtest block 4: static 0.2208 retrained 0.2398
+[11:55:51] backtest block 5: static 0.1976 retrained 0.2485
+[11:55:56] saved model artifact artifacts\ieee\models\ieee-v2-raw-plus-velocity-20261017-165551
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "C:\Users\ARMAND\Desktop\fraud detection project\fraud-detection-ensemble\src\fraudshield\cli.py", line 257, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "C:\Users\ARMAND\Desktop\fraud detection project\fraud-detection-ensemble\src\fraudshield\cli.py", line 253, in main
+    return int(args.fn(args))
+               ^^^^^^^^^^^^^
+  File "C:\Users\ARMAND\Desktop\fraud detection project\fraud-detection-ensemble\src\fraudshield\cli.py", line 69, in cmd_train_ieee
+    out = run_ieee_v2(
+          ^^^^^^^^^^^^
+  File "C:\Users\ARMAND\Desktop\fraud detection project\fraud-detection-ensemble\src\fraudshield\training\ieee_v2.py", line 407, in run_ieee_v2
+    promote_version(registry, version, gate, reason="trained by ieee_v2 pipeline")
+  File "C:\Users\ARMAND\Desktop\fraud detection project\fraud-detection-ensemble\src\fraudshield\training\promotion.py", line 105, in promote_version
+    raise PromotionRejected(report)
+fraudshield.training.promotion.PromotionRejected: promotion gate failed: test_pr_auc; test_roc_auc
+EXIT 1

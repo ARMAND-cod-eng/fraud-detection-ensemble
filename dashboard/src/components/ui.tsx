@@ -112,6 +112,10 @@ const SCENARIO_LABEL: Record<string, string> = {
 
 export function ReplayBar({ status, onChange }: { status: ReplayStatus | null; onChange: () => void }) {
   const [scenario, setScenario] = useState("enriched");
+  const cfgScenarios = usePublicConfig().scenarios;
+  const scenarios = Object.keys(cfgScenarios).length ? Object.keys(cfgScenarios) : Object.keys(SCENARIO_LABEL);
+  const ieee = usePublicConfig().profile === "ieee";
+  useEffect(() => { if (!scenarios.includes(scenario)) setScenario(scenarios[0]); }, [scenarios.join()]); // eslint-disable-line
   const [rate, setRate] = useState(25);
   const [count, setCount] = useState(3000);
   const [error, setError] = useState<string | null>(null);
@@ -151,7 +155,7 @@ export function ReplayBar({ status, onChange }: { status: ReplayStatus | null; o
         </div>
         <div className="row">
           <select className="select" value={scenario} onChange={(e) => setScenario(e.target.value)} disabled={running || paused} aria-label="Scenario">
-            {Object.entries(SCENARIO_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            {scenarios.map((k) => <option key={k} value={k}>{ieee && k === "historical" ? "Held-out stream, in order" : SCENARIO_LABEL[k] ?? k}</option>)}
           </select>
           <label className="row small ink2" style={{ gap: 6 }}>
             <span className="nowrap">{rate} tx/s</span>
@@ -180,8 +184,9 @@ export function ReplayBar({ status, onChange }: { status: ReplayStatus | null; o
         <p className="note" style={{ marginTop: 8 }}>
           {status.scenario === "synthetic_drift" && "Synthetic transactions with an injected distribution shift — use to exercise drift monitoring. "}
           {status.scenario === "enriched" && "Real held-out transactions with every held-out fraud included at most once (up to 5%); alert rates are inflated by design. "}
-          {status.scenario === "historical" && "Real held-out transactions at the natural fraud rate (~0.13%). "}
-          Seed {status.seed}. {status.data_source}
+          {status.scenario === "historical" && !ieee && "Real held-out transactions at the natural fraud rate (~0.13%). "}
+          {status.scenario === "historical" && ieee && "Real held-out transactions at the natural fraud rate (~3.4%), in time order through the online feature store; each replay continues the stream. "}
+          {ieee ? status.notes?.[1] : `Seed ${status.seed}.`} {status.data_source}
         </p>
       )}
       <ErrorNote error={error} />

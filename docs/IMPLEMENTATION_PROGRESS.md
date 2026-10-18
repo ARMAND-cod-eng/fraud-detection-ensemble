@@ -1,6 +1,7 @@
 # Implementation progress
 
-Branch `fraudshield-upgrade` (from `main` @ `c7e571f`). Work session: 2026-10-16.
+v1 on branch `fraudshield-upgrade` (from `main` @ `c7e571f`, 2026-10-16), merged; quick wins and
+FraudShield v2 on 2026-10-17.
 Hardware: Windows 11 laptop, 8 CPU cores, 8 GB RAM, no GPU. Python 3.12.13, Node 24, Docker 29.6.
 
 ## Status by phase
@@ -13,6 +14,7 @@ Hardware: Windows 11 laptop, 8 CPU cores, 8 GB RAM, no GPU. Python 3.12.13, Node
 | 4. Operational credibility | **Done (local)** | Load tests, Prometheus metrics, PSI drift, registry gate/rollback, MLflow (optional), CI workflow file |
 | 5. Portfolio delivery | **Done** | README, 9 docs, demo script, resume bullets |
 | 6. Advanced research | **Done** | IEEE-CIS benchmark run on real data (2026-10-17): cumulative entity counts hurt (drift), windowed counts fixed the drift but added nothing; see `benchmarks/results/ieee-cis/report.md` |
+| 7. FraudShield v2 (flagship) | **Done (local)** | Velocity feature store with proven parity, IEEE-CIS authorisation-time model, monthly backtest, `ieee` serving profile with linked activity and reason codes; `benchmarks/results/ieee-cis-v2/`, `docs/ML_EVALUATION.md` §12 |
 
 ## Log
 
@@ -57,15 +59,36 @@ Hardware: Windows 11 laptop, 8 CPU cores, 8 GB RAM, no GPU. Python 3.12.13, Node
     reduced test PR-AUC (0.508 → 0.498, CI excludes 0); diagnosed as drift (test medians 3–4× train).
     Added trailing-window counts (unit-tested against hand-computed values): 0.505, CI touches 0.
     Validation selects the original columns. Baseline reproduced exactly across runs.
+14. **Quick wins (2026-10-17):** public demo mode + Hugging Face Space Dockerfile (built and run
+    locally; publishing is the user's step), README GIF, `docs/SYSTEM_DESIGN.md`, CI coverage gate,
+    pip-audit, npm audit, Dependabot, pre-commit, CHANGELOG, tag `v1.0.0`.
+15. **v2 feature store (2026-10-17):** `features/velocity.py` with an offline engine and an online
+    store. Hypothesis found two float edge cases (a near-zero window total crossing the ratio
+    threshold; cross-entity cumulative-sum cancellation), both fixed. Real-data parity:
+    0 mismatches in 1,771,620 values.
+16. **v2 experiments (2026-10-17):** `fraudshield train-ieee` (11 min). Velocity adopted on validation
+    (+0.0094, 90% CI low +0.0023); test 0.208 → 0.217, gain CI [+0.001, +0.018]; 3% of the gap to
+    the 431-column ceiling. Backtest: static 0.253 → 0.198, retrained 0.24–0.25. The first run
+    crashed at promotion (gate failed) before writing its report; the pipeline now records a failed
+    gate as a result. The second run reproduced every metric exactly. The uncapped cost-optimal
+    threshold flagged 40% of traffic, so it was capped at 5% (disclosed amendment, post-hoc on test).
+17. **v2 serving (2026-10-17):** dataset profiles, IEEE request contract, online features in
+    `FraudService`, `entity_links` + linked-activity endpoint, reason sentences, NaN-aware drift,
+    profile-aware dashboard. The model was force-promoted for local serving with a logged reason.
+    A 5,000-transaction replay through the running API matched the offline features exactly
+    (75,000 values); reasons were reviewed on real alerts and percentiles removed where meaningless
+    (category codes, masked IDs).
 
 ## Validation performed
 
 | Check | Result |
 |---|---|
-| `pytest -q` | **58 passed**, 2 skipped (performance, opt-in) in ~37 s |
+| `pytest -q` | **90 passed**, 2 skipped (performance, opt-in) in ~100 s; coverage 93% |
 | `FRAUDSHIELD_RUN_PERF=1 pytest tests/performance` | 2 passed (in-process p95 < 10 ms, HTTP p95 < 50 ms) |
 | `ruff check .` / `ruff format --check .` | clean |
-| `mypy` (src + api, 46 files) | no issues |
+| `mypy` (src + api, 53 files) | no issues |
+| `scripts/check_feature_parity.py` (real IEEE-CIS test window) | 0 mismatches / 1,771,620 values |
+| `scripts/check_served_parity.py` (API, `ieee` profile) | 0 mismatches / 75,000 values |
 | `npm run build` (tsc --noEmit + vite) | success, 288 kB JS (88 kB gzip) |
 | `docker build --target runtime` + `docker compose up -d api` | built; container healthy; `/ready` OK |
 | `fraudshield evaluate` | reproduced stored test metrics exactly |
@@ -73,12 +96,15 @@ Hardware: Windows 11 laptop, 8 CPU cores, 8 GB RAM, no GPU. Python 3.12.13, Node
 
 ## Not verified / remaining
 
-* **CI on GitHub:** `.github/workflows/ci.yml` is written but has not run (nothing was pushed).
-  Its steps mirror the commands above, which pass locally.
+* **CI on GitHub** runs on every push and pull request (tests with the coverage gate, lint, types,
+  audits, dashboard build, Docker build); it ran green for v1. Check the v2 commits' run on GitHub.
+* **Hugging Face Space:** the image was built and run locally; publishing it needs the user's own
+  Hugging Face account and token (`scripts/deploy_hf_space.ps1`).
 * **`trainer` Docker target and the `monitoring` Compose profile** (Prometheus/Grafana) were not
   built or started (disk/RAM limits on this machine); configs are provided, untested.
 * **AWS:** design + task-definition template only; nothing provisioned.
-* **IEEE-CIS:** benchmark only (no IEEE-CIS model is served by the API); one seed, fixed hyper-parameters.
+* **IEEE-CIS:** one seed, fixed hyper-parameters. The v2 model is served only locally, through a
+  logged override of its failed gate; the feature store is single-instance (Redis path documented).
 * Seed variance for the autoencoder/stacked models not quantified; XGBoost `hist` is deterministic.
 * The MLflow run for the production model was not recorded (MLflow was installed after it);
   re-running `fraudshield train` with `pip install -e .[tracking]` records it.
@@ -87,6 +113,8 @@ Hardware: Windows 11 laptop, 8 CPU cores, 8 GB RAM, no GPU. Python 3.12.13, Node
 
 ## Next actions (suggested order)
 
-1. Review and commit the branch; push and let CI run.
-3. Record a 90-second screen capture following `docs/DEMO_SCRIPT.md`.
+1. Publish the Hugging Face Space and add the live-demo link to the README.
+2. Record a 90-second screen capture following `docs/DEMO_SCRIPT.md`.
+3. Optional: Redis-backed feature store for multi-instance serving; shadow (champion/challenger)
+   serving using the backtest's retraining cadence.
 4. Optional: deploy to AWS following `docs/DEPLOYMENT.md` (costs money; your decision).

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "./lib/api";
 import { usePoll, useHashRoute } from "./lib/hooks";
 import { ConfigContext, DEFAULT_CONFIG } from "./lib/config";
+import { setCurrency } from "./lib/format";
 import { Icon, Shield } from "./components/ui";
 import Overview from "./pages/Overview";
 import Live from "./pages/Live";
@@ -39,6 +40,7 @@ export default function App() {
   const open = usePoll(() => api.transactions({ review_status: "open", alerts_only: true, limit: 1 }), 5000);
   const ok = ready.data?.status === "ready";
   const cfg = usePoll(api.config, 0).data ?? DEFAULT_CONFIG;
+  setCurrency(cfg.currency);
 
   return (
     <ConfigContext.Provider value={cfg}>
@@ -56,7 +58,7 @@ export default function App() {
         <div className="sidebar-foot">
           <span className={`badge ${ok ? "ok" : "alert"}`}><span className="dot" />{ok ? "Service ready" : "Service not ready"}</span>
           {ready.data?.model_version && <span className="mono muted" style={{ fontSize: 11, wordBreak: "break-all" }}>{ready.data.model_version}</span>}
-          <span className="small muted">{cfg.demo_mode ? "Public demo" : "Local"} · public ULB dataset</span>
+          <span className="small muted">{cfg.demo_mode ? "Public demo" : "Local"} · {cfg.profile === "ieee" ? "IEEE-CIS v2 (local only)" : "public ULB dataset"}</span>
           {cfg.data_attribution && <span className="muted" style={{ fontSize: 11 }}>{cfg.data_attribution}</span>}
           <button className="btn sm" onClick={toggle} aria-label="Toggle colour theme">{theme === "dark" ? <Icon.sun /> : <Icon.moon />}{theme === "dark" ? "Light" : "Dark"} mode</button>
         </div>

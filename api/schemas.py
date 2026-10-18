@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any, Generic, Literal, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, create_model, model_validator
 
@@ -55,16 +55,114 @@ class TransactionIn(BaseModel):
         return rec
 
 
-class BatchIn(BaseModel):
+_TEXT = r"^[ -~]{1,64}$"  # printable ASCII (domains, device strings like "SM-G892A Build/NRD90M")
+
+
+def _num(desc: str, hi: float = 1e7) -> Any:
+    return Field(None, ge=0, le=hi, allow_inf_nan=False, description=desc)
+
+
+def _text(desc: str, max_length: int = 64) -> Any:
+    return Field(None, pattern=_TEXT, max_length=max_length, description=desc)
+
+
+class IEEETransactionIn(BaseModel):
+    """IEEE-CIS authorisation-time field contract (``FRAUDSHIELD_PROFILE=ieee``).
+
+    Only raw values a merchant has when the card is authorised; the vendor-engineered C/D/V/id_
+    aggregates are not part of the contract. Velocity features are computed server-side from the
+    online feature store. Missing fields are allowed (the model was trained with missing values).
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "example": {
+                "transaction_id": "ieee_000123",
+                "amount": 117.0,
+                "time_seconds": 13_000_000,
+                "ProductCD": "W",
+                "card1": 13926,
+                "card2": 361.0,
+                "card3": 150.0,
+                "card4": "visa",
+                "card5": 226.0,
+                "card6": "debit",
+                "addr1": 315.0,
+                "addr2": 87.0,
+                "P_emaildomain": "gmail.com",
+                "M4": "M0",
+                "DeviceType": "desktop",
+                "DeviceInfo": "Windows",
+            }
+        },
+    )
+
+    transaction_id: str | None = Field(
+        None,
+        pattern=TXN_ID_PATTERN,
+        description="Client-supplied ID; doubles as an idempotency key. Generated when omitted.",
+    )
+    amount: float = Field(..., ge=0, le=1_000_000, allow_inf_nan=False, description="TransactionAmt (USD)")
+    time_seconds: float = Field(
+        ...,
+        ge=0,
+        le=1e9,
+        allow_inf_nan=False,
+        description="TransactionDT: seconds since the dataset's undisclosed reference time. Events must "
+        "arrive in time order; earlier events are processed at the stream watermark and flagged.",
+    )
+    ProductCD: str | None = _text("Product code", 8)
+    card1: float | None = _num("Card identifier field 1 (masked)")
+    card2: float | None = _num("Card identifier field 2 (masked)")
+    card3: float | None = _num("Card identifier field 3 (masked)")
+    card4: str | None = _text("Card network")
+    card5: float | None = _num("Card identifier field 5 (masked)")
+    card6: str | None = _text("Card type")
+    addr1: float | None = _num("Billing region (masked)")
+    addr2: float | None = _num("Billing country (masked)")
+    dist1: float | None = _num("Distance between addresses (masked units)")
+    P_emaildomain: str | None = _text("Purchaser e-mail domain")
+    R_emaildomain: str | None = _text("Recipient e-mail domain")
+    M1: str | None = _text("Match check M1", 8)
+    M2: str | None = _text("Match check M2", 8)
+    M3: str | None = _text("Match check M3", 8)
+    M4: str | None = _text("Match check M4", 8)
+    M5: str | None = _text("Match check M5", 8)
+    M6: str | None = _text("Match check M6", 8)
+    M7: str | None = _text("Match check M7", 8)
+    M8: str | None = _text("Match check M8", 8)
+    M9: str | None = _text("Match check M9", 8)
+    DeviceType: str | None = _text("Device type (desktop / mobile)", 16)
+    DeviceInfo: str | None = _text("Device model / operating system")
+
+    def to_record(self) -> dict[str, Any]:
+        rec = self.model_dump(exclude={"transaction_id", "amount", "time_seconds"})
+        rec["TransactionDT"] = self.time_seconds
+        rec["TransactionAmt"] = self.amount
+        return rec
+
+
+T = TypeVar("T", TransactionIn, IEEETransactionIn)
+
+
+class Batch(BaseModel, Generic[T]):
     model_config = ConfigDict(extra="forbid")
-    transactions: list[TransactionIn] = Field(..., min_length=1, max_length=10_000)
+    transactions: list[T] = Field(..., min_length=1, max_length=10_000)
 
     @model_validator(mode="after")
-    def _unique_ids(self) -> BatchIn:
+    def _unique_ids(self) -> Batch[T]:
         ids = [t.transaction_id for t in self.transactions if t.transaction_id]
         if len(ids) != len(set(ids)):
             raise ValueError("transaction_id values must be unique within a batch")
         return self
+
+
+BatchIn = Batch[TransactionIn]
+REQUEST_MODELS: dict[str, type[TransactionIn] | type[IEEETransactionIn]] = {
+    "creditcard": TransactionIn,
+    "ieee": IEEETransactionIn,
+}
 
 
 class ScoreOut(BaseModel):
@@ -74,7 +172,16 @@ class ScoreOut(BaseModel):
     risk_level: Literal["low", "medium", "high"]
     recommended_action: Literal["approve", "review", "decline"]
     decision_reasons: list[str]
-    expected_loss_eur: float = Field(..., description="probability x amount x loss_rate (policy assumption)")
+    top_risk_factors: list[str] = Field(
+        ...,
+        description="For alerts: the strongest risk-increasing attributions as plain sentences "
+        "(model associations, not evidence). Empty for approvals.",
+    )
+    expected_loss_eur: float = Field(
+        ...,
+        description="probability x amount x loss_rate (policy assumption), in the dataset's currency "
+        "(EUR for creditcard, USD for ieee; see GET /api/v1/config)",
+    )
     review_capacity_exceeded: bool
     model_version: str
     policy_version: str

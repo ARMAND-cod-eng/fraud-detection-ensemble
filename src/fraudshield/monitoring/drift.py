@@ -4,6 +4,10 @@ Reference bins are decile edges learned on the *training* split for input featur
 the *validation* split for model scores (training-set scores are in-sample and optimistic).
 PSI interpretation bands (0.1 / 0.25) are an industry rule of thumb, not a statistical test;
 they are used as warning levels, and small windows are flagged as unreliable.
+
+Missing values (IEEE-CIS fields, velocity features of transactions without an entity key) get their
+own bin, so a change in the *missing rate* is drift too. References built before this existed have
+no ``missing_bin`` flag and are read as before.
 """
 
 from __future__ import annotations
@@ -23,16 +27,22 @@ _EPS = 1e-4
 SCORE_EDGES = (1e-4, 1e-3, 1e-2, 0.05, 0.1, 0.25, 0.5, 0.75, 0.9)
 # Cyclical time-of-day features drift by construction whenever the live window covers only part of
 # a day; they are reported but excluded from the overall status.
-SEASONAL_FEATURES = frozenset({"hour_sin", "hour_cos"})
+SEASONAL_FEATURES = frozenset({"hour_sin", "hour_cos", "hour_of_day", "day_of_week"})
 
 
 def _edges(values: np.ndarray, n_bins: int = 10) -> np.ndarray:
+    values = values[~np.isnan(values)]
+    if not len(values):
+        return np.empty(0)
     qs = np.quantile(values, np.linspace(0, 1, n_bins + 1)[1:-1])
     return np.unique(qs)
 
 
-def _proportions(values: np.ndarray, edges: np.ndarray) -> np.ndarray:
-    counts = np.bincount(np.searchsorted(edges, values, side="right"), minlength=len(edges) + 1)
+def _proportions(values: np.ndarray, edges: np.ndarray, missing_bin: bool = False) -> np.ndarray:
+    nan = np.isnan(values)
+    counts = np.bincount(np.searchsorted(edges, values[~nan], side="right"), minlength=len(edges) + 1)
+    if missing_bin:
+        counts = np.r_[counts, int(nan.sum())]
     return counts / float(max(1, int(counts.sum())))
 
 
@@ -53,7 +63,8 @@ def build_reference(
         edges = _edges(features[:, j])
         ref["features"][name] = {
             "edges": edges.tolist(),
-            "expected": _proportions(features[:, j], edges).tolist(),
+            "expected": _proportions(features[:, j], edges, missing_bin=True).tolist(),
+            "missing_bin": True,
         }
     s_edges = np.asarray(SCORE_EDGES)
     ref["score"] = {
@@ -86,7 +97,8 @@ def drift_report(
         r = reference["features"].get(name)
         if r is None or n == 0:
             continue
-        value = psi(np.asarray(r["expected"]), _proportions(features[:, j], np.asarray(r["edges"])))
+        actual = _proportions(features[:, j], np.asarray(r["edges"]), bool(r.get("missing_bin")))
+        value = psi(np.asarray(r["expected"]), actual)
         out["features"].append(
             {
                 "feature": name,

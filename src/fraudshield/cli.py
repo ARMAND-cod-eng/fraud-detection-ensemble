@@ -61,6 +61,30 @@ def cmd_train(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_train_ieee(args: argparse.Namespace) -> int:
+    """FraudShield v2: IEEE-CIS model on authorisation-time fields + velocity features."""
+    from fraudshield.training.ieee_v2 import run_ieee_v2
+    from fraudshield.training.pipeline import load_config
+
+    out = run_ieee_v2(
+        load_config(args.config),
+        root=args.root,
+        artifacts_root=args.artifacts,
+        results_dir=args.results,
+        promote=not args.no_promote,
+    )
+    ev = out["evaluation"]
+    _print(
+        {
+            "version": out["version"],
+            "selected_model": ev["selected_model"],
+            "test_pr_auc": {k: v["pr_auc"] for k, v in ev["test"].items()},
+            "share_of_gap_recovered": ev["share_of_gap_to_vendor_features_recovered"],
+        }
+    )
+    return 0
+
+
 def cmd_evaluate(args: argparse.Namespace) -> int:
     """Reproducibility check: reload the artifact, rebuild the split, re-score test."""
     from sklearn.metrics import average_precision_score, roc_auc_score
@@ -190,6 +214,14 @@ def main(argv: list[str] | None = None) -> int:
     t.add_argument("--quick", action="store_true", help="tiny settings (tests / CI)")
     t.add_argument("--no-figures", action="store_true")
     t.set_defaults(fn=cmd_train)
+
+    ti = sub.add_parser("train-ieee", help="FraudShield v2 on IEEE-CIS (needs the Kaggle files)")
+    ti.add_argument("--config", default="configs/ieee_v2.yaml")
+    ti.add_argument("--root", default="data/raw/ieee-cis")
+    ti.add_argument("--artifacts", default="artifacts/ieee")
+    ti.add_argument("--results", default="benchmarks/results/ieee-cis-v2")
+    ti.add_argument("--no-promote", action="store_true")
+    ti.set_defaults(fn=cmd_train_ieee)
 
     e = sub.add_parser("evaluate", help="re-score the test split with a saved artifact")
     e.add_argument("--version", default=None)

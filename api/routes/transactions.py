@@ -1,16 +1,20 @@
-"""Scoring, transaction listing, explanations and analyst review."""
+"""Scoring, transaction listing, explanations, linked activity and analyst review.
 
-from __future__ import annotations
+The scoring endpoints take the active profile's request model (``FRAUDSHIELD_PROFILE``), so the
+OpenAPI schema documents exactly the contract this deployment serves. No ``from __future__ import
+annotations`` here: FastAPI must see the concrete request class chosen at router build time.
+"""
 
 import asyncio
 import re
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, Query, Request
+from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
 from api.deps import ApiError, AppState, check_rate, get_service, get_state, rate_limited, require_api_key
-from api.schemas import TXN_ID_PATTERN, BatchIn, BatchOut, ErrorOut, ReviewIn, ScoreOut, TransactionIn
+from api.schemas import REQUEST_MODELS, TXN_ID_PATTERN, Batch, BatchOut, ErrorOut, ReviewIn, ScoreOut
 from fraudshield.service import ExplanationUnavailable, IdempotencyConflict, ScoreRequest
 
 router = APIRouter(prefix="/api/v1/transactions", tags=["transactions"])
@@ -23,7 +27,7 @@ ERRORS: dict[int | str, dict[str, Any]] = {
 }
 
 
-async def _score(state: AppState, service: Any, txns: list[TransactionIn]) -> list[dict[str, Any]]:
+async def _score(state: AppState, service: Any, txns: list[Any]) -> list[dict[str, Any]]:
     reqs = [ScoreRequest(features=t.to_record(), transaction_id=t.transaction_id) for t in txns]
     timeout = state.settings.inference_timeout_ms / 1000
     try:
@@ -47,33 +51,46 @@ async def _score(state: AppState, service: Any, txns: list[TransactionIn]) -> li
         ) from None
 
 
-@router.post(
-    "/score",
-    response_model=ScoreOut,
-    responses=ERRORS,
-    dependencies=[Depends(require_api_key), Depends(rate_limited())],
-)
-async def score_transaction(
-    txn: TransactionIn, state: AppState = Depends(get_state), service: Any = Depends(get_service)
-) -> dict[str, Any]:
-    """Score one transaction: calibrated fraud probability + policy decision."""
-    return (await _score(state, service, [txn]))[0]
+def build_scoring_router(profile: str) -> APIRouter:
+    """``POST /score`` and ``POST /batch`` typed with the profile's request model."""
+    txn_model: type[BaseModel] = REQUEST_MODELS[profile]
+    batch_model: Any = Batch[txn_model]  # type: ignore[valid-type]
+    scoring = APIRouter(prefix="/api/v1/transactions", tags=["transactions"])
 
+    async def score_transaction(
+        txn: txn_model,  # type: ignore[valid-type]
+        state: AppState = Depends(get_state),
+        service: Any = Depends(get_service),
+    ) -> dict[str, Any]:
+        """Score one transaction: calibrated fraud probability + policy decision."""
+        return (await _score(state, service, [txn]))[0]
 
-@router.post("/batch", response_model=BatchOut, responses=ERRORS, dependencies=[Depends(require_api_key)])
-async def score_batch(
-    batch: BatchIn,
-    request: Request,
-    state: AppState = Depends(get_state),
-    service: Any = Depends(get_service),
-) -> dict[str, Any]:
-    """Score up to ``FRAUDSHIELD_MAX_BATCH_SIZE`` transactions in one vectorised call."""
-    n = len(batch.transactions)
-    if n > state.settings.max_batch_size:
-        raise ApiError(422, "batch_too_large", f"batch of {n} exceeds limit {state.settings.max_batch_size}")
-    check_rate(request, state, cost=float(n))  # a batch consumes one rate-limit token per transaction
-    results = await _score(state, service, batch.transactions)
-    return {"results": results, "count": len(results), "model_version": service.scorer.version}
+    async def score_batch(
+        batch: batch_model,
+        request: Request,
+        state: AppState = Depends(get_state),
+        service: Any = Depends(get_service),
+    ) -> dict[str, Any]:
+        """Score up to ``FRAUDSHIELD_MAX_BATCH_SIZE`` transactions in one vectorised call."""
+        n = len(batch.transactions)
+        if n > state.settings.max_batch_size:
+            raise ApiError(
+                422, "batch_too_large", f"batch of {n} exceeds limit {state.settings.max_batch_size}"
+            )
+        check_rate(request, state, cost=float(n))  # a batch consumes one rate-limit token per transaction
+        results = await _score(state, service, batch.transactions)
+        return {"results": results, "count": len(results), "model_version": service.scorer.version}
+
+    scoring.post(
+        "/score",
+        response_model=ScoreOut,
+        responses=ERRORS,
+        dependencies=[Depends(require_api_key), Depends(rate_limited())],
+    )(score_transaction)
+    scoring.post(
+        "/batch", response_model=BatchOut, responses=ERRORS, dependencies=[Depends(require_api_key)]
+    )(score_batch)
+    return scoring
 
 
 @router.get("")
@@ -119,6 +136,21 @@ def get_explanation(transaction_id: str, service: Any = Depends(get_service)) ->
     if exp is None:
         raise ApiError(404, "not_found", f"transaction {transaction_id!r} not found")
     return exp
+
+
+@router.get("/{transaction_id}/linked", responses={404: {"model": ErrorOut}})
+def get_linked(
+    transaction_id: str,
+    service: Any = Depends(get_service),
+    limit: int = Query(10, ge=1, le=50),
+) -> dict[str, Any]:
+    """Recent transactions sharing a card, card + e-mail domain, card + region or device model."""
+    if not re.fullmatch(TXN_ID_PATTERN, transaction_id):
+        raise ApiError(422, "invalid_transaction_id", "transaction_id has an invalid format")
+    out = service.linked(transaction_id, limit)
+    if out is None:
+        raise ApiError(404, "not_found", f"transaction {transaction_id!r} not found")
+    return out
 
 
 @router.post(

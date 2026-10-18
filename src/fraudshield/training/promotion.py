@@ -15,6 +15,19 @@ from fraudshield.data.synthetic import generate_creditcard_like
 from fraudshield.models.artifact import ModelRegistry, load_model, read_json, verify_artifact
 
 
+def _probe(model: Any) -> Any:
+    """64 synthetic rows in the model's own input schema (credit-card or IEEE-CIS profile)."""
+    if getattr(model.feature_builder, "kind", "") == "ieee_v2":
+        import pandas as pd
+
+        from fraudshield.data.ieee_cis import synthetic_ieee_like
+        from fraudshield.features.velocity import compute_offline
+
+        frame = synthetic_ieee_like(n=64, seed=123)
+        return pd.concat([frame, compute_offline(frame)], axis=1)
+    return generate_creditcard_like(n=64, seed=123)
+
+
 class PromotionRejected(RuntimeError):
     def __init__(self, report: dict[str, Any]) -> None:
         super().__init__(
@@ -38,7 +51,7 @@ def evaluate_gate(registry: ModelRegistry, version: str, gate: dict[str, Any]) -
         return {"version": version, "passed": False, "checks": checks}
 
     model, meta = load_model(d)
-    probe = generate_creditcard_like(n=64, seed=123)
+    probe = _probe(model)
     p1, p2 = model.predict_proba(probe), model.predict_proba(probe)
     check(
         "smoke_test",

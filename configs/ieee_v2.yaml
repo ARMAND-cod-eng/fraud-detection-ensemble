@@ -1,0 +1,45 @@
+# FraudShield v2: IEEE-CIS model on authorisation-time fields + real-time velocity features.
+# Every choice below is fixed before the test window is scored (docs/ML_EVALUATION.md §12).
+experiment_name: ieee-cis-v2
+seed: 42
+data:
+  root: data/raw/ieee-cis
+split: { train_frac: 0.6, val_frac: 0.2 } # chronological on TransactionDT
+xgboost:
+  n_estimators: 3000
+  learning_rate: 0.05
+  max_depth: 8
+  min_child_weight: 3
+  subsample: 0.8
+  colsample_bytree: 0.7
+  tree_method: hist
+  early_stopping_rounds: 100
+  eval_metric: aucpr
+  # Early stopping uses the last 15% of the TRAINING period (chronological), never validation.
+  early_stopping_frac: 0.15
+# Pre-registered rule: velocity features are adopted only if they beat the raw-contract model on
+# VALIDATION PR-AUC and the paired-bootstrap 90% CI of the gain excludes zero.
+selection: { bootstrap: 500, alpha: 0.10 }
+evaluation: { bootstrap: 500, latency_rows: 2000 }
+cost_assumptions: { review_cost: 5.0, loss_rate: 1.0 } # illustrative, USD
+# AMENDMENT 1 (2026-10-17, made after the first full run, which had already scored the test window):
+# the uncapped cost-optimal review threshold was 0.021, which flags ~40% of validation traffic
+# (a $5 review "pays" for almost any transaction at a 3.4% fraud rate). The review threshold is now
+# the cost-optimal one among thresholds that flag at most 5% of VALIDATION transactions. The rule
+# uses validation data only, but because it was changed after a test run, test operating-point
+# numbers are reported as post-hoc. Ranking metrics (PR-AUC, ROC-AUC) are unaffected.
+operating_point: { max_review_rate: 0.05 }
+backtest:
+  block_days: 30
+  label_maturity_gap_blocks: 1 # labels of the month before the scored month are not final yet
+  static_train_blocks: 2 # the "static" model is trained once on the first two months
+  test_blocks: [3, 4, 5]
+# Pre-declared before any IEEE v2 result was seen. The first run FAILED it (test PR-AUC 0.217,
+# ROC-AUC 0.821) and the limits are deliberately left unchanged: the model is not promoted
+# automatically. Local serving uses an explicit, logged `fraudshield models promote --force`.
+gate:
+  min_test_pr_auc: 0.30
+  min_test_roc_auc: 0.85
+  max_pr_auc_regression: 0.02
+  max_p95_latency_ms: 50
+reference_full_feature_pr_auc_file: benchmarks/results/ieee-cis/metrics.json
