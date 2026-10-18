@@ -23,15 +23,19 @@ export interface TxnSummary {
   over_capacity?: boolean;
   has_explanation?: boolean;
   quality?: string[];
+  top_reasons?: string[] | null;
+  top_reason?: string | null; // live stream events
 }
 
 export interface Factor {
   feature: string;
-  value: number;
+  value: number | null;
+  display_value?: string;
   contribution: number;
   direction: string;
   training_percentile: number | null;
   description: string;
+  reason?: string | null; // plain-language rendering of the attribution
 }
 
 export interface Explanation {
@@ -63,7 +67,7 @@ export interface CaseEvent {
 export interface TxnDetail extends TxnSummary {
   raw_score: number;
   expected_loss: number;
-  features: Record<string, number>;
+  features: Record<string, number | string | null>;
   explanation: Explanation | null;
   signals: Record<string, Signal> | null;
   quality: string[];
@@ -163,6 +167,7 @@ export interface Simulation {
 export interface ThresholdMetrics { threshold: number; precision: number; recall: number; f1: number; fpr: number; alerts: number; alert_rate: number; tp: number; fp: number; fn: number; tn: number }
 export interface CI { point: number; ci_low: number; ci_high: number; delta_vs_xgboost?: number; delta_ci_low?: number; delta_ci_high?: number; p_delta_le_0?: number }
 export interface Evaluation {
+  profile?: string;
   version: string; experiment: string; created_at: string; selected_model: string;
   dataset: { sha256: string; rows_raw: number; frauds_raw: number; rows: number; frauds: number; exact_duplicates_removed: number; time_span_hours: number;
     split: Record<string, { rows: number; frauds: number; fraud_rate: number; time_start_s: number; time_end_s: number }> & { strategy: string } };
@@ -195,11 +200,41 @@ export interface ModelInfo {
   thresholds: { review: number; f1: number }; calibration: { method: string; a: number; b: number };
 }
 export interface Versions { production: string | null; versions: string[]; serving: string | null;
-  history: { action: string; version: string; previous: string | null; reason: string; at: string }[] }
+  history: { action: string; version: string; previous: string | null; reason: string; at: string; gate?: GateReport | null }[] }
+export interface GateReport { passed: boolean; checks: { name: string; passed: boolean; detail: unknown }[] }
 
 export interface PublicConfig {
   version: string; environment: string; demo_mode: boolean; max_replay_tps: number; max_replay_count: number;
   policy_changes_allowed: boolean; demo_note: string; data_attribution: string;
+  profile: string; currency: string; scenarios: Record<string, string>; linked_activity: boolean;
+}
+
+export interface LinkedTxn {
+  transaction_id: string; event_time: number | null; amount: number; fraud_probability: number;
+  action: Action; risk_level: Risk; review_status: ReviewStatus; received_at: number;
+}
+export interface Linked {
+  transaction_id: string; available: boolean; reason?: string; note?: string;
+  links: { type: string; label: string; strength: string; total: number; earlier: number; earlier_24h: number; transactions: LinkedTxn[] }[];
+}
+
+export interface IEEEEvaluation {
+  version: string; profile: "ieee"; created_at: string; selected_model: string;
+  dataset: { rows: number; frauds: number; split: Record<"train" | "validation" | "test", { rows: number; frauds: number; fraud_rate: number; time_start_s: number; time_end_s: number }> & { strategy: string } };
+  protocol: { field_contract: string[]; velocity_features: { name: string }[]; selection_log: string[]; amendments?: string[] };
+  candidates: Record<string, { info: Record<string, unknown> }>;
+  validation: Record<string, Record<string, number>>;
+  test: Record<string, Record<string, number>>;
+  test_bootstrap_95ci: { pr_auc: Record<string, CI & { delta_vs_raw_contract?: number }> };
+  reference_all_431_columns_test_pr_auc: number | null;
+  share_of_gap_to_vendor_features_recovered: number | null;
+  selected_operating_points: { review_threshold: number; review_threshold_test: ThresholdMetrics; f1_threshold: number; f1_threshold_test: ThresholdMetrics };
+  calibration_test: Record<"raw" | "calibrated", { brier: number; log_loss: number; ece: number }>;
+  latency_online: { single_row_p50_ms: number; single_row_p95_ms: number; single_row_p99_ms: number; feature_store_p50_ms: number; feature_store_p95_ms: number };
+  global_importance: { feature: string; mean_abs_shap: number }[];
+  curves_test: Record<string, { roc: [number, number][]; pr: [number, number][] }>;
+  backtest: { blocks: { test_block: number; train_blocks_retrained: string; frauds: number; static_pr_auc: number; retrained_pr_auc: number }[] };
+  promotion?: { promoted: boolean; report: { checks: { name: string; passed: boolean; detail: unknown }[] } };
 }
 
 export class ApiError extends Error {
@@ -232,6 +267,7 @@ export const api = {
     return request<{ items: TxnSummary[]; total: number }>(`/api/v1/transactions?${params}`);
   },
   transaction: (id: string) => request<TxnDetail>(`/api/v1/transactions/${encodeURIComponent(id)}`),
+  linked: (id: string) => request<Linked>(`/api/v1/transactions/${encodeURIComponent(id)}/linked`),
   explanation: (id: string) => request<{ explanation: Explanation; signals: Record<string, Signal> }>(`/api/v1/transactions/${encodeURIComponent(id)}/explanation`),
   review: (id: string, decision: string, notes?: string) => post<CaseEvent>(`/api/v1/transactions/${encodeURIComponent(id)}/review`, { decision, notes: notes || null }),
   modelInfo: () => request<ModelInfo>("/api/v1/models/info"),

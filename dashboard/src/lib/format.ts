@@ -1,11 +1,22 @@
 const nf0 = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
-const eur = new Intl.NumberFormat("en-IE", { style: "currency", currency: "EUR", maximumFractionDigits: 2 });
-const eur0 = new Intl.NumberFormat("en-IE", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
+// Currency follows the served profile (EUR for the ULB data, USD for IEEE-CIS); App sets it from /config.
+let currency = "EUR";
+const moneyFmt = (c: string, digits: number) =>
+  new Intl.NumberFormat(c === "EUR" ? "en-IE" : "en-US", { style: "currency", currency: c, maximumFractionDigits: digits });
+let money = moneyFmt(currency, 2);
+let money0 = moneyFmt(currency, 0);
+export function setCurrency(c: string) {
+  if (!c || c === currency) return;
+  currency = c;
+  money = moneyFmt(c, 2);
+  money0 = moneyFmt(c, 0);
+}
+export const currencySymbol = () => (currency === "EUR" ? "€" : currency === "USD" ? "$" : `${currency} `);
 const compact = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 });
 
 export const fmtInt = (n: number | null | undefined) => (n == null ? "—" : nf0.format(n));
 export const fmtCompact = (n: number | null | undefined) => (n == null ? "—" : n < 10_000 ? nf0.format(n) : compact.format(n));
-export const fmtEur = (n: number | null | undefined, whole = false) => (n == null ? "—" : (whole ? eur0 : eur).format(n));
+export const fmtMoney = (n: number | null | undefined, whole = false) => (n == null ? "—" : (whole ? money0 : money).format(n));
 
 export function fmtPct(p: number | null | undefined, digits?: number): string {
   if (p == null || Number.isNaN(p)) return "—";
@@ -40,7 +51,7 @@ export function fmtAgo(epochS: number): string {
   return `${Math.floor(s / 3600)}h ago`;
 }
 
-/** Dataset "Time" is seconds since the start of the 48 h capture; show it as day + clock. */
+/** Dataset time (ULB "Time", IEEE-CIS "TransactionDT") is seconds since a reference start; show day + clock. */
 export function fmtEventTime(sec: number | null): string {
   if (sec == null) return "—";
   const day = Math.floor(sec / 86400) + 1;

@@ -1,10 +1,12 @@
 import { api } from "../lib/api";
+import { usePublicConfig } from "../lib/config";
 import { fmtInt, fmtMs, fmtPct, fmtTime } from "../lib/format";
 import { usePoll } from "../lib/hooks";
 import { HBarChart, TimeSeriesChart } from "../components/charts";
 import { Card, ErrorNote, PageHead, PsiBadge, Stat } from "../components/ui";
 
 export default function Monitoring() {
+  const cfg = usePublicConfig();
   const mon = usePoll(api.monitoring, 2000);
   const m = mon.data;
   const drift = m?.drift;
@@ -41,7 +43,7 @@ export default function Monitoring() {
                 <dt>Mean probability (validation)</dt><dd>{fmtPct(drift.score.reference_mean, 3)}</dd>
                 <dt>Alert rate (5 min)</dt><dd>{fmtPct(m?.alert_rate_last_5m)}</dd>
               </dl>
-              <p className="note">The fraud-enriched replay raises the score distribution by design, so this monitor should flag it.</p>
+              {cfg.profile !== "ieee" && <p className="note">The fraud-enriched replay raises the score distribution by design, so this monitor should flag it.</p>}
             </div>
           ) : <div className="empty">No scored transactions yet.</div>}
         </Card>
