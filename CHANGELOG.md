@@ -25,7 +25,7 @@ All notable changes. Versions follow [Semantic Versioning](https://semver.org/).
 - `docs/MODEL_CARD_IEEE_V2.md`; `docs/ML_EVALUATION.md` §12; architecture section on profiles and the
   feature store.
 - Coverage gate in CI (`--cov-fail-under=88`; measured 92%), `pip-audit` and `npm audit` steps,
-  Dependabot (pip, npm, actions, docker) and a pre-commit configuration.
+  and a pre-commit configuration.
 - Tests for the CLI, report generation, dataset-download guards and optional MLflow tracking.
 
 ### Results (verified, IEEE-CIS v2, out-of-time test)

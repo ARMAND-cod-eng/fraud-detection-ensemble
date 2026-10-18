@@ -47,7 +47,7 @@ data when the Space is built, and the first visit after a quiet period takes abo
 | v2: IEEE-CIS on authorisation-time fields + 15 online velocity features | test PR-AUC **0.217** [0.204–0.231]; velocity gain **+0.009** [+0.001, +0.018]; **failed** the pre-registered gate |
 | v2 online/offline feature parity | **0 mismatches** in 1,771,620 values (feature engines) and 75,000 values (through the API) |
 | v2 latency incl. feature-store read + update (in-process) | p50 **0.79 ms** · p95 1.35 ms |
-| Engineering checks | **90 automated tests**, 93% coverage (CI gate 88%), ruff, mypy, pip-audit, npm audit, Dependabot |
+| Engineering checks | **90 automated tests**, 93% coverage (CI gate 88%), ruff, mypy, pip-audit and npm audit in CI |
 
 Data: ULB credit-card dataset (284,807 transactions, 48 h, 492 frauds), chronological
 60/20/20 split, duplicates removed, every choice made on validation, test scored once.
