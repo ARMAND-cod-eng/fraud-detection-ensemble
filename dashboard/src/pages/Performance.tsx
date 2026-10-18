@@ -1,5 +1,6 @@
-import { api } from "../lib/api";
-import { MODEL_LABEL, fmtEur, fmtInt, fmtMs, fmtPct } from "../lib/format";
+import { api, type IEEEEvaluation } from "../lib/api";
+import PerformanceIEEE from "./PerformanceIEEE";
+import { MODEL_LABEL, fmtMoney, fmtInt, fmtMs, fmtPct } from "../lib/format";
 import { usePoll } from "../lib/hooks";
 import { ConfusionMatrix, CurveChart, HBarChart } from "../components/charts";
 import { Card, ErrorNote, PageHead } from "../components/ui";
@@ -16,6 +17,7 @@ export default function Performance() {
   const versions = usePoll(api.versions, 0);
   const e = ev.data;
   if (!e) return <><PageHead title="Model performance" /><ErrorNote error={ev.error} />{!ev.error && <div className="empty">Loading evaluation…</div>}</>;
+  if (e.profile === "ieee") return <PerformanceIEEE e={e as unknown as IEEEEvaluation} versions={versions.data ?? null} />;
 
   const sel = e.selected_model;
   const op = e.selected_operating_points;
@@ -49,12 +51,12 @@ export default function Performance() {
       <div className="grid cols-2" style={{ marginTop: 16 }}>
         <Card title="Precision–recall (test)" sub="The informative curve when fraud is ~0.1% of traffic">
           <CurveChart label="Precision-recall curves" xLabel="Recall" yLabel="Precision"
-            curves={CURVE_MODELS.map((k) => ({ key: k, label: `${MODEL_LABEL[k]} · AP ${e.test[k].pr_auc.toFixed(3)}`, color: SLOT[k], points: e.curves_test[k].pr }))} />
+            curves={CURVE_MODELS.filter((k) => e.curves_test[k]).map((k) => ({ key: k, label: `${MODEL_LABEL[k]} · AP ${e.test[k].pr_auc.toFixed(3)}`, color: SLOT[k], points: e.curves_test[k].pr }))} />
         </Card>
         <Card title="ROC (test, log false-positive rate)" sub="Log scale shows the low-FPR region where fraud operations live">
           <CurveChart label="ROC curves" xLabel="False-positive rate" yLabel="True-positive rate" xLog xDomain={[1e-4, 1]}
             xFormat={(v) => (v >= 0.01 ? `${v * 100}%` : `${+(v * 100).toPrecision(1)}%`)}
-            curves={CURVE_MODELS.map((k) => ({ key: k, label: `${MODEL_LABEL[k]} · AUC ${e.test[k].roc_auc.toFixed(3)}`, color: SLOT[k], points: e.curves_test[k].roc }))} />
+            curves={CURVE_MODELS.filter((k) => e.curves_test[k]).map((k) => ({ key: k, label: `${MODEL_LABEL[k]} · AUC ${e.test[k].roc_auc.toFixed(3)}`, color: SLOT[k], points: e.curves_test[k].roc }))} />
         </Card>
       </div>
 
@@ -135,7 +137,7 @@ export default function Performance() {
           <table className="data" style={{ marginTop: 8 }}>
             <thead><tr><th>Policy on test window</th><th className="num">Reviews</th><th className="num">Total cost</th></tr></thead>
             <tbody>{Object.entries(cost.test).map(([k, v]) => (
-              <tr key={k}><td>{k.replace(/_/g, " ")}</td><td className="num">{fmtInt(v.reviews ?? 0)}</td><td className="num">{fmtEur(v.total_cost, true)}</td></tr>
+              <tr key={k}><td>{k.replace(/_/g, " ")}</td><td className="num">{fmtInt(v.reviews ?? 0)}</td><td className="num">{fmtMoney(v.total_cost, true)}</td></tr>
             ))}</tbody>
           </table>
           <p className="note">“Test oracle” uses test labels to pick its threshold and is only an upper bound.</p>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, type PolicyInput, type Simulation } from "../lib/api";
-import { fmtEur, fmtInt, fmtPct } from "../lib/format";
+import { fmtMoney, fmtInt, fmtPct, currencySymbol } from "../lib/format";
 import { useDebounced, usePoll } from "../lib/hooks";
 import { usePublicConfig } from "../lib/config";
 import { CurveChart } from "../components/charts";
@@ -62,9 +62,9 @@ export default function Policy() {
               <input type="range" min={500} max={999} value={Math.round(draft.decline_threshold * 1000)} onChange={(e) => set({ decline_threshold: +e.target.value / 1000 })} />
             </label>
             <div className="grid cols-2" style={{ gap: 10 }}>
-              <label className="field">Review cost (€)
+              <label className="field">Review cost ({currencySymbol().trim()})
                 <input className="input" type="number" min={0} step={0.5} value={draft.review_cost} onChange={(e) => set({ review_cost: +e.target.value })} /></label>
-              <label className="field">False-decline cost (€)
+              <label className="field">False-decline cost ({currencySymbol().trim()})
                 <input className="input" type="number" min={0} step={1} value={draft.false_decline_cost} onChange={(e) => set({ false_decline_cost: +e.target.value })} /></label>
               <label className="field">Review capacity (per hour)
                 <input className="input" type="number" min={1} step={5} value={draft.max_reviews_per_hour} onChange={(e) => set({ max_reviews_per_hour: Math.max(1, +e.target.value) })} /></label>
@@ -85,11 +85,11 @@ export default function Policy() {
         <div className="stack">
           <div className="kpis">
             <Stat label="Frauds stopped" value={res ? `${res.frauds_stopped} / ${res.frauds}` : "—"} sub={res ? `${fmtPct(res.frauds_stopped / Math.max(1, res.frauds))} of frauds` : undefined} />
-            <Stat label="Fraud value stopped" value={res ? fmtEur(res.fraud_amount_stopped, true) : "—"} sub={res ? `of ${fmtEur(res.fraud_amount_total, true)}` : undefined} />
+            <Stat label="Fraud value stopped" value={res ? fmtMoney(res.fraud_amount_stopped, true) : "—"} sub={res ? `of ${fmtMoney(res.fraud_amount_total, true)}` : undefined} />
             <Stat label="Manual reviews" value={res ? fmtInt(res.reviewed) : "—"} sub={sim ? `${(res!.reviewed / sim.window_hours).toFixed(1)} per hour` : undefined} />
             <Stat label="Declines" value={res ? fmtInt(res.declined) : "—"} sub={res ? `${res.legit_declined} legitimate customers declined` : undefined} />
-            <Stat label="Expected total cost" value={res ? fmtEur(res.cost.total, true) : "—"}
-              sub={res ? `loss ${fmtEur(res.cost.fraud_loss, true)} · review ${fmtEur(res.cost.review, true)} · friction ${fmtEur(res.cost.false_declines, true)}` : undefined} />
+            <Stat label="Expected total cost" value={res ? fmtMoney(res.cost.total, true) : "—"}
+              sub={res ? `loss ${fmtMoney(res.cost.fraud_loss, true)} · review ${fmtMoney(res.cost.review, true)} · friction ${fmtMoney(res.cost.false_declines, true)}` : undefined} />
           </div>
           <Card title="Investigation capacity" sub={sim ? `If analysts review only the top-scored alerts (held-out window of ${sim.window_hours.toFixed(1)} h)` : ""}>
             {sim && (
@@ -103,7 +103,7 @@ export default function Policy() {
                   <tbody>{sim.capacity.map((c) => (
                     <tr key={c.reviews_per_hour}><td className="num">{c.reviews_per_hour}</td><td className="num">{fmtInt(c.reviews)}</td>
                       <td className="num">{c.frauds_caught} ({fmtPct(c.recall, 0)})</td><td className="num">{fmtPct(c.precision)}</td>
-                      <td className="num">{fmtEur(c.residual_fraud_loss, true)}</td></tr>
+                      <td className="num">{fmtMoney(c.residual_fraud_loss, true)}</td></tr>
                   ))}</tbody>
                 </table>
               </>

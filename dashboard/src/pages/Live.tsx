@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, type TxnSummary } from "../lib/api";
-import { fmtEur, fmtEventTime, fmtInt, fmtMs, fmtTime } from "../lib/format";
+import { fmtMoney, fmtEventTime, fmtInt, fmtMs, fmtTime } from "../lib/format";
 import { usePoll, useTransactionStream } from "../lib/hooks";
 import { ActionBadge, Card, PageHead, ProbBar, ReplayBar, RiskBadge, StatusBadge, SyntheticTag } from "../components/ui";
 
@@ -73,9 +73,10 @@ export default function Live() {
                 <tr key={t.transaction_id} className={`clickable${fresh.has(t.transaction_id) ? " fresh" : ""}`}
                   onClick={() => (window.location.hash = `#/cases/${t.transaction_id}`)}>
                   <td className="nowrap">{fmtTime(t.received_at)}</td>
-                  <td><span className="mono">{t.transaction_id}</span> {t.synthetic && <SyntheticTag />}</td>
+                  <td><span className="mono">{t.transaction_id}</span> {t.synthetic && <SyntheticTag />}
+                    {t.top_reason && t.action !== "approve" && <div className="small ink2 truncate" title={t.top_reason}>{t.top_reason}</div>}</td>
                   <td className="nowrap small ink2">{fmtEventTime(t.event_time)}</td>
-                  <td className="num">{fmtEur(t.amount)}</td>
+                  <td className="num">{fmtMoney(t.amount)}</td>
                   <td><ProbBar p={t.fraud_probability} level={t.risk_level} /></td>
                   <td><RiskBadge level={t.risk_level} /></td>
                   <td><ActionBadge action={t.action} /></td>

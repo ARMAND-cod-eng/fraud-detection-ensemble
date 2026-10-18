@@ -1,10 +1,12 @@
 import { api } from "../lib/api";
-import { fmtCompact, fmtEur, fmtInt, fmtMs, fmtPct, fmtProb, fmtTime } from "../lib/format";
+import { usePublicConfig } from "../lib/config";
+import { fmtCompact, fmtMoney, fmtInt, fmtMs, fmtPct, fmtProb, fmtTime } from "../lib/format";
 import { usePoll } from "../lib/hooks";
 import { BarChart, TimeSeriesChart } from "../components/charts";
 import { ActionBadge, Card, ErrorNote, PageHead, ReplayBar, RiskBadge, Stat, SyntheticTag } from "../components/ui";
 
 export default function Overview() {
+  const cfg = usePublicConfig();
   const ov = usePoll(api.overview, 2000);
   const alerts = usePoll(() => api.transactions({ alerts_only: true, limit: 8 }), 3000);
   const d = ov.data;
@@ -17,7 +19,7 @@ export default function Overview() {
     <>
       <PageHead
         title="Executive overview"
-        desc="Live view of everything the scoring service has processed in this session. Probabilities are calibrated model estimates; amounts are in EUR."
+        desc={`Live view of everything the scoring service has processed in this session. Probabilities are calibrated model estimates; amounts are in ${cfg.currency}.`}
       />
       <ReplayBar status={d?.replay ?? null} onChange={ov.refresh} />
       <ErrorNote error={ov.error} />
@@ -26,7 +28,7 @@ export default function Overview() {
         <Stat label="Transactions processed" value={fmtCompact(s?.n)} sub={s?.synthetic ? `${fmtInt(s.synthetic)} synthetic` : "All real held-out data"} />
         <Stat label="Fraud alerts" value={fmtInt(s?.alerts)} sub={s ? `${fmtInt(s.reviews)} review · ${fmtInt(s.declines)} decline` : undefined} />
         <Stat label="Alert rate" value={s ? fmtPct(s.alert_rate) : "—"} sub={s ? `${fmtInt(s.open_cases)} open cases` : undefined} />
-        <Stat label="Expected fraud exposure" value={s ? fmtEur(s.expected_fraud_amount, true) : "—"}
+        <Stat label="Expected fraud exposure" value={s ? fmtMoney(s.expected_fraud_amount, true) : "—"}
           sub={<span title={d?.exposure_note}>Σ probability × amount (model estimate)</span>} />
         <Stat label="Inference latency" value={fmtMs(d?.latency.inference_ms.p50)}
           sub={`p95 ${fmtMs(d?.latency.inference_ms.p95)} · request p95 ${fmtMs(d?.latency.request_ms.p95)}`} />
@@ -65,7 +67,7 @@ export default function Overview() {
                   <tr key={t.transaction_id} className="clickable" onClick={() => (window.location.hash = `#/cases/${t.transaction_id}`)}>
                     <td><div className="mono" style={{ fontSize: 11.5 }}>{t.transaction_id}</div>
                       <div className="small muted">{fmtTime(t.received_at)} {t.synthetic && <SyntheticTag />}</div></td>
-                    <td className="num">{fmtEur(t.amount)}<div className="small muted">{fmtProb(t.fraud_probability)}</div></td>
+                    <td className="num">{fmtMoney(t.amount)}<div className="small muted">{fmtProb(t.fraud_probability)}</div></td>
                     <td><ActionBadge action={t.action} /></td>
                   </tr>
                 ))}
@@ -74,7 +76,7 @@ export default function Overview() {
           ) : <div className="empty">No alerts yet. Start a replay to stream held-out transactions.</div>}
         </Card>
       </div>
-      <p className="note">{d?.exposure_note} Flagged amount: {fmtEur(s?.flagged_amount, true)} of {fmtEur(s?.volume, true)} processed.</p>
+      <p className="note">{d?.exposure_note} Flagged amount: {fmtMoney(s?.flagged_amount, true)} of {fmtMoney(s?.volume, true)} processed.</p>
     </>
   );
 }
