@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import re
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, SecretStr, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -30,6 +31,9 @@ class Settings(BaseSettings):
     # Security: when set, mutating endpoints require header ``X-API-Key``.
     api_key: SecretStr | None = None
     cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
+    # Origins allowed to embed the dashboard in a frame (space-separated https origins), e.g.
+    # "https://huggingface.co" for a Space page. Empty (default): framing is denied everywhere.
+    frame_ancestors: str = ""
     enable_docs: bool = True
 
     # Reliability
@@ -48,6 +52,15 @@ class Settings(BaseSettings):
     demo_max_replay_tps: float = Field(default=100.0, gt=0)
     demo_max_replay_count: int = Field(default=5000, ge=1)
     demo_note: str = ""  # shown in the dashboard banner, e.g. how the demo model was trained
+
+    @field_validator("frame_ancestors")
+    @classmethod
+    def _check_frame_ancestors(cls, v: str) -> str:
+        # Values go verbatim into a response header: allow only plain https origins.
+        for origin in v.split():
+            if not re.fullmatch(r"https://[A-Za-z0-9.-]+(:\d{1,5})?", origin):
+                raise ValueError(f"frame_ancestors entries must be https origins, got {origin!r}")
+        return " ".join(v.split())
 
     @model_validator(mode="after")
     def _profile_defaults(self) -> Settings:
