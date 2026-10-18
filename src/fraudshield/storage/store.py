@@ -40,7 +40,8 @@ CREATE TABLE IF NOT EXISTS predictions (
     explanation       TEXT,
     signals           TEXT,
     quality           TEXT NOT NULL,
-    review_status     TEXT NOT NULL
+    review_status     TEXT NOT NULL,
+    top_reasons       TEXT
 );
 CREATE INDEX IF NOT EXISTS ix_pred_received ON predictions(received_at);
 CREATE INDEX IF NOT EXISTS ix_pred_action ON predictions(action, received_at);
@@ -57,6 +58,19 @@ CREATE TABLE IF NOT EXISTS case_events (
 );
 CREATE INDEX IF NOT EXISTS ix_case_txn ON case_events(transaction_id, at);
 
+-- Linked activity: transactions sharing an entity (card, card+e-mail, device model...). Keys are
+-- SHA-256 prefixes of the entity values: an index key, not anonymisation (low-entropy values can be
+-- brute-forced), so this table is as sensitive as the features it is derived from.
+CREATE TABLE IF NOT EXISTS entity_links (
+    entity_type    TEXT NOT NULL,
+    entity_hash    TEXT NOT NULL,
+    transaction_id TEXT NOT NULL,
+    event_time     REAL,
+    PRIMARY KEY (entity_type, entity_hash, transaction_id)
+);
+CREATE INDEX IF NOT EXISTS ix_links_txn ON entity_links(transaction_id);
+CREATE INDEX IF NOT EXISTS ix_links_entity_time ON entity_links(entity_type, entity_hash, event_time);
+
 CREATE TABLE IF NOT EXISTS policy_history (
     version TEXT NOT NULL,
     at      REAL NOT NULL,
@@ -65,7 +79,9 @@ CREATE TABLE IF NOT EXISTS policy_history (
 );
 """
 
-JSON_COLUMNS = ("reasons", "features", "explanation", "signals", "quality")
+JSON_COLUMNS = ("reasons", "features", "explanation", "signals", "quality", "top_reasons")
+# Columns added after the first release; ``_migrate`` adds them to older local databases.
+ADDED_COLUMNS = {"top_reasons": "TEXT"}
 REVIEW_DECISIONS = {"confirmed_fraud", "legitimate", "escalated"}
 
 
@@ -81,6 +97,13 @@ class PredictionStore:
             self._conn.execute("PRAGMA journal_mode=WAL")
             self._conn.execute("PRAGMA synchronous=NORMAL")
             self._conn.executescript(SCHEMA)
+            self._migrate()
+
+    def _migrate(self) -> None:
+        have = {r[1] for r in self._conn.execute("PRAGMA table_info(predictions)").fetchall()}
+        for col, sql_type in ADDED_COLUMNS.items():
+            if col not in have:
+                self._conn.execute(f"ALTER TABLE predictions ADD COLUMN {col} {sql_type}")
 
     def close(self) -> None:
         with self._lock:
@@ -102,10 +125,16 @@ class PredictionStore:
             ).fetchone()
         return None if row is None else str(row[0])
 
-    def insert_predictions(self, rows: Iterable[dict[str, Any]]) -> None:
+    def insert_predictions(
+        self,
+        rows: Iterable[dict[str, Any]],
+        links: Iterable[tuple[str, str, str, float]] = (),
+    ) -> None:
+        """Insert predictions and their entity links in one transaction."""
         rows = list(rows)
         if not rows:
             return
+        links = list(links)
         cols = list(rows[0].keys())
         sql = f"INSERT INTO predictions ({', '.join(cols)}) VALUES ({', '.join('?' for _ in cols)})"
         values = [
@@ -116,6 +145,12 @@ class PredictionStore:
             self._conn.execute("BEGIN")
             try:
                 self._conn.executemany(sql, values)
+                if links:
+                    self._conn.executemany(
+                        "INSERT OR IGNORE INTO entity_links (entity_type, entity_hash, transaction_id, event_time) "
+                        "VALUES (?, ?, ?, ?)",
+                        links,
+                    )
                 self._conn.execute("COMMIT")
             except Exception:
                 self._conn.execute("ROLLBACK")
@@ -179,11 +214,16 @@ class PredictionStore:
                 "DELETE FROM predictions WHERE received_at <= ? AND review_status IN ('none', 'open')",
                 (cutoff,),
             )
+            self._conn.execute(
+                "DELETE FROM entity_links WHERE transaction_id NOT IN (SELECT transaction_id FROM predictions)"
+            )
             return cur.rowcount
 
     def reset(self) -> None:
         with self._lock:
-            self._conn.executescript("DELETE FROM case_events; DELETE FROM predictions;")
+            self._conn.executescript(
+                "DELETE FROM case_events; DELETE FROM entity_links; DELETE FROM predictions;"
+            )
 
     # ------------------------------------------------------------------ reads
     @staticmethod
@@ -245,7 +285,7 @@ class PredictionStore:
         cols = (
             "transaction_id, received_at, event_time, amount, fraud_probability, risk_level, action, reasons, "
             "model_version, policy_version, latency_ms, source, synthetic, scenario, review_status, over_capacity, "
-            "quality, explanation IS NOT NULL AS has_explanation"
+            "quality, top_reasons, explanation IS NOT NULL AS has_explanation"
         )
         with self._lock:
             total = self._conn.execute(f"SELECT COUNT(*) FROM predictions {clause}", args).fetchone()[0]
@@ -325,6 +365,38 @@ class PredictionStore:
                     "avg_latency_ms": float(r["latency"]) if r and r["latency"] is not None else None,
                 }
             )
+        return out
+
+    def linked(self, transaction_id: str, event_time: float | None, limit: int = 10) -> dict[str, Any]:
+        """Per entity type: transactions sharing the key, with counts before/after this event."""
+        out: dict[str, Any] = {}
+        with self._lock:
+            keys = self._conn.execute(
+                "SELECT entity_type, entity_hash FROM entity_links WHERE transaction_id = ?",
+                (transaction_id,),
+            ).fetchall()
+            for kind, h in keys:
+                counts = self._conn.execute(
+                    """SELECT COUNT(*) total,
+                              SUM(event_time < ?) earlier,
+                              SUM(event_time >= ? - 86400 AND event_time < ?) earlier_24h
+                       FROM entity_links WHERE entity_type = ? AND entity_hash = ? AND transaction_id != ?""",
+                    (event_time, event_time, event_time, kind, h, transaction_id),
+                ).fetchone()
+                items = self._conn.execute(
+                    """SELECT p.transaction_id, p.event_time, p.amount, p.fraud_probability, p.action,
+                              p.risk_level, p.review_status, p.received_at
+                       FROM entity_links l JOIN predictions p ON p.transaction_id = l.transaction_id
+                       WHERE l.entity_type = ? AND l.entity_hash = ? AND l.transaction_id != ?
+                       ORDER BY ABS(l.event_time - ?) LIMIT ?""",
+                    (kind, h, transaction_id, event_time, limit),
+                ).fetchall()
+                out[kind] = {
+                    "total": int(counts["total"] or 0),
+                    "earlier": int(counts["earlier"] or 0),
+                    "earlier_24h": int(counts["earlier_24h"] or 0),
+                    "transactions": sorted((dict(r) for r in items), key=lambda d: d["event_time"] or 0),
+                }
         return out
 
     def labelled_outcomes(self, limit: int = 20_000) -> list[tuple[float, int, str]]:

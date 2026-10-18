@@ -36,6 +36,7 @@ class AppState:
     settings: Settings
     service: Any = None  # FraudService (None until a model is loaded)
     replay: Any = None
+    profile: Any = None  # ServingProfile (set before the model loads, so /config always works)
     limiter: TokenBucketLimiter | None = None
     startup_error: str | None = None
 

@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -13,6 +14,9 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="FRAUDSHIELD_", env_file=".env", extra="ignore")
 
     environment: str = "local"
+    # Data profile served: "creditcard" (ULB) or "ieee" (IEEE-CIS v2, authorisation-time fields +
+    # online velocity features). Paths below default per profile unless set explicitly.
+    profile: Literal["creditcard", "ieee"] = "creditcard"
     artifacts_dir: Path = Path("artifacts")
     model_version: str | None = Field(
         default=None, description="Pin a model version; default = registry production"
@@ -20,6 +24,7 @@ class Settings(BaseSettings):
     policy_path: Path = Path("configs/decision_policy.yaml")
     db_path: Path = Path("var/fraudshield.db")
     replay_file: Path = Path("artifacts/replay/creditcard_test_window.csv.gz")
+    warmup_file: Path | None = None  # history that warms the online feature store (ieee profile)
     dashboard_dir: Path | None = Path("dashboard/dist")
 
     # Security: when set, mutating endpoints require header ``X-API-Key``.
@@ -43,6 +48,20 @@ class Settings(BaseSettings):
     demo_max_replay_tps: float = Field(default=100.0, gt=0)
     demo_max_replay_count: int = Field(default=5000, ge=1)
     demo_note: str = ""  # shown in the dashboard banner, e.g. how the demo model was trained
+
+    @model_validator(mode="after")
+    def _profile_defaults(self) -> Settings:
+        if self.profile == "ieee":
+            defaults = {
+                "artifacts_dir": Path("artifacts/ieee"),
+                "db_path": Path("var/fraudshield_ieee.db"),
+                "replay_file": Path("artifacts/ieee/replay/ieee_test_window.csv.gz"),
+                "warmup_file": Path("artifacts/ieee/replay/ieee_warmup.csv.gz"),
+            }
+            for name, value in defaults.items():
+                if name not in self.model_fields_set:
+                    object.__setattr__(self, name, value)
+        return self
 
 
 @lru_cache

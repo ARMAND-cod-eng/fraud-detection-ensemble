@@ -9,10 +9,10 @@ from typing import Any
 
 import numpy as np
 
-from fraudshield.data.schema import AMOUNT_COLUMN, RAW_FEATURE_COLUMNS, TIME_COLUMN
-from fraudshield.features.engineering import FEATURE_DESCRIPTIONS
 from fraudshield.models.artifact import ModelRegistry, load_model, read_json
 from fraudshield.models.fraud_model import SIGNAL_DESCRIPTIONS, SIGNAL_NAMES, FraudModel
+from fraudshield.profiles.base import ServingProfile
+from fraudshield.profiles.creditcard import CreditCardProfile
 
 EXPLANATION_DISCLAIMER = (
     "Attributions (TreeSHAP) show how this model's output depends on each input. They are "
@@ -31,10 +31,23 @@ class BatchScores:
 
 
 class FraudScorer:
-    def __init__(self, model: FraudModel, metadata: dict[str, Any], model_dir: Path) -> None:
+    def __init__(
+        self,
+        model: FraudModel,
+        metadata: dict[str, Any],
+        model_dir: Path,
+        profile: ServingProfile | None = None,
+    ) -> None:
         self.model = model
         self.metadata = metadata
         self.model_dir = model_dir
+        if profile is None:  # offline use (CLI drift report, tests): infer from the artifact
+            from fraudshield.profiles.ieee_serving import IEEEProfile
+
+            ieee = getattr(model.feature_builder, "kind", "") == "ieee_v2"
+            profile = IEEEProfile(None, None) if ieee else CreditCardProfile(None)
+        self.profile = profile
+        self.profile.check_model(model)
         self.loaded_at = time.time()
         ref_path = model_dir / "reference_profile.json"
         self.reference = read_json(ref_path) if ref_path.exists() else None
@@ -43,7 +56,9 @@ class FraudScorer:
         self._warm_up()
 
     @classmethod
-    def from_registry(cls, artifacts_dir: str | Path, version: str | None = None) -> FraudScorer:
+    def from_registry(
+        cls, artifacts_dir: str | Path, version: str | None = None, profile: ServingProfile | None = None
+    ) -> FraudScorer:
         registry = ModelRegistry(artifacts_dir)
         version = version or registry.production()
         if version is None:
@@ -52,7 +67,7 @@ class FraudScorer:
             )
         model_dir = registry.model_dir(version)
         model, meta = load_model(model_dir, verify=True)
-        return cls(model, meta, model_dir)
+        return cls(model, meta, model_dir, profile)
 
     @property
     def version(self) -> str:
@@ -66,24 +81,24 @@ class FraudScorer:
         return read_json(self._evaluation_path) if self._evaluation_path else None
 
     def _warm_up(self) -> None:
-        rec = {c: np.zeros(1) for c in RAW_FEATURE_COLUMNS}
-        self.score_columns(rec)
+        self.score_records([self.profile.warm_up_record()])
 
     # ------------------------------------------------------------------ scoring
-    def score_columns(self, columns: dict[str, np.ndarray]) -> BatchScores:
-        t = time.perf_counter()
-        base = self.model.base_features(columns)
+    def _score_base(self, base: np.ndarray, t0: float) -> BatchScores:
         inputs = self.model.model_inputs(base)
         raw = self.model.predict_raw_from_inputs(inputs)
         prob = self.model.calibrator.transform(raw)
-        return BatchScores(prob, raw, base, inputs, (time.perf_counter() - t) * 1000)
+        return BatchScores(prob, raw, base, inputs, (time.perf_counter() - t0) * 1000)
 
-    @staticmethod
-    def records_to_columns(records: list[dict[str, float]]) -> dict[str, np.ndarray]:
-        return {
-            c: np.fromiter((r[c] for r in records), dtype=np.float64, count=len(records))
-            for c in RAW_FEATURE_COLUMNS
-        }
+    def score_records(self, records: list[dict[str, Any]]) -> BatchScores:
+        """Online path: raw records (already enriched by ``profile.prepare``) -> scores."""
+        t0 = time.perf_counter()
+        return self._score_base(self.profile.base_features(self.model, records), t0)
+
+    def score_columns(self, columns: Any) -> BatchScores:
+        """Batch path: a DataFrame or column mapping (offline drift reports, policy simulation)."""
+        t0 = time.perf_counter()
+        return self._score_base(np.asarray(self.model.base_features(columns)), t0)
 
     # ------------------------------------------------------------------ context
     def signals(self, base_row: np.ndarray) -> dict[str, Any]:
@@ -101,7 +116,9 @@ class FraudScorer:
             }
         return out
 
-    def explain(self, inputs_row: np.ndarray, top_k: int = 8) -> dict[str, Any]:
+    def explain(
+        self, inputs_row: np.ndarray, record: dict[str, Any] | None = None, top_k: int = 8
+    ) -> dict[str, Any]:
         contrib, base_value = self.model.contributions(inputs_row.reshape(1, -1))
         c = contrib[0]
         names = self.model.model_feature_names
@@ -110,17 +127,23 @@ class FraudScorer:
         for i in order:
             name = names[i]
             value = float(inputs_row[i])
-            pct = self.model.feature_builder.percentile(name, value)
-            if pct is None and name in SIGNAL_NAMES:
+            is_signal = name in SIGNAL_NAMES
+            pct = None if np.isnan(value) else self.model.feature_builder.percentile(name, value)
+            if pct is None and is_signal:
                 pct = self.model.signal_percentile(name, value)
             factors.append(
                 {
                     "feature": name,
-                    "value": value,
+                    "value": None if np.isnan(value) else value,
+                    "display_value": self.profile.display_value(name, value, record),
                     "contribution": float(c[i]),
                     "direction": "increases risk" if c[i] > 0 else "decreases risk",
                     "training_percentile": None if pct is None else round(pct, 2),
-                    "description": FEATURE_DESCRIPTIONS.get(name) or SIGNAL_DESCRIPTIONS.get(name, name),
+                    "description": SIGNAL_DESCRIPTIONS[name]
+                    if is_signal
+                    else self.profile.feature_description(name),
+                    # Plain-language rendering of the same attribution: not a cause, not evidence.
+                    "reason": None if is_signal else self.profile.reason(self.model, name, value, record),
                 }
             )
         return {
@@ -133,29 +156,23 @@ class FraudScorer:
             "disclaimer": EXPLANATION_DISCLAIMER,
         }
 
-    def quality_warnings(self, base_row: np.ndarray, raw: dict[str, float]) -> list[str]:
-        """Flag inputs outside the range seen in training (model behaviour there is unvalidated)."""
-        warnings: list[str] = []
-        prof = self.model.feature_builder.profile
-        for j, name in enumerate(self.model.feature_builder.feature_names):
-            p = prof.get(name)
-            if p and not (p["min"] <= base_row[j] <= p["max"]):
-                warnings.append(
-                    f"{name}={base_row[j]:.4g} outside training range [{p['min']:.4g}, {p['max']:.4g}]"
-                )
-        if raw[AMOUNT_COLUMN] == 0:
-            warnings.append("Amount is 0 (zero-value authorisation)")
-        if raw[TIME_COLUMN] > 172_800:
-            warnings.append(
-                "Time beyond the 48 h capture window; hour-of-day encoding assumes Time=0 at midnight"
-            )
-        return warnings[:10]
+    @staticmethod
+    def top_reasons(explanation: dict[str, Any], k: int = 3) -> list[str]:
+        """Risk-increasing factors as sentences, for the API response and the alert queue."""
+        return [f["reason"] for f in explanation["top_factors"] if f["contribution"] > 0 and f.get("reason")][
+            :k
+        ]
+
+    def quality_warnings(self, base_row: np.ndarray, raw: dict[str, Any]) -> list[str]:
+        """Flag inputs the model was not validated on (outside training range, unseen categories)."""
+        return self.profile.quality_warnings(self.model, base_row, raw)
 
     def info(self) -> dict[str, Any]:
         m = self.metadata
         return {
             "model_version": self.version,
             "kind": self.model.kind,
+            "profile": self.profile.name,
             "selected_candidate": m.get("selected_candidate"),
             "created_at": m.get("created_at"),
             "loaded_at": self.loaded_at,
@@ -170,4 +187,5 @@ class FraudScorer:
             "metrics": m.get("metrics"),
             "gate_checks": m.get("gate_checks"),
             "environment": m.get("environment"),
+            "online": self.profile.status(),
         }
