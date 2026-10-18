@@ -25,6 +25,15 @@ fails with `RuntimeError`) if the profile does not match the artifact. The featu
 process, so this profile runs as a single instance. The IEEE-CIS data and models must not be hosted
 publicly (competition rules); the Hugging Face Space uses the ULB profile.
 
+## 1b. Public demo (Hugging Face Space)
+
+Live at https://huggingface.co/spaces/notuearmand250/fraudshield. `deploy/hf-space/Dockerfile` trains the ULB model at build time and runs with
+`FRAUDSHIELD_DEMO_MODE=true` (capped replays, no policy changes or resets) and
+`FRAUDSHIELD_FRAME_ANCESTORS=https://huggingface.co`, so the Space page may embed the dashboard while
+every other site is still denied. Publish or update it with
+`scripts/deploy_hf_space.ps1 -SpaceId <user>/<space>`, using your own token. Docker Spaces need a
+Hugging Face PRO plan (USD 9/month as of October 2026).
+
 ## 2. Docker
 
 ```bash

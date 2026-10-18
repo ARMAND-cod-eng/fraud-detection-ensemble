@@ -1,5 +1,6 @@
 # FraudShield AI — real-time fraud intelligence platform
 
+[![Live demo](https://img.shields.io/badge/live%20demo-Hugging%20Face-ffcc4d)](https://huggingface.co/spaces/notuearmand250/fraudshield)
 [![CI](https://github.com/ARMAND-cod-eng/fraud-detection-ensemble/actions/workflows/ci.yml/badge.svg)](https://github.com/ARMAND-cod-eng/fraud-detection-ensemble/actions/workflows/ci.yml)
 ![Coverage 93%](https://img.shields.io/badge/coverage-93%25-brightgreen)
 ![Python 3.12](https://img.shields.io/badge/python-3.12-blue)
@@ -21,6 +22,10 @@ not beat a single XGBoost, so it was not shipped.
 served online and offline with **0 mismatches in 1.77M values**, linked activity and plain-language
 reason codes. The velocity features earn a small but real gain, and the v2 model **fails its own
 pre-registered quality gate**. [Why, and what it means](#fraudshield-v2-real-time-velocity-features-on-ieee-cis).
+
+**[▶ Try the live demo](https://huggingface.co/spaces/notuearmand250/fraudshield)**: start a replay, open an alert, run a policy what-if.
+It is a public demo: replays are capped, policy changes are off, the model is trained on the ULB
+data when the Space is built, and the first visit after a quiet period takes about a minute to wake up.
 
 ![FraudShield walkthrough: replay, live monitor, investigation, performance, policy, drift](docs/images/demo.gif)
 
